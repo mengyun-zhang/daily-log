@@ -190,24 +190,14 @@ h1{font-size:18px;margin:0 0 8px;line-height:1.4;color:#111;}
   <div class="card">
     <div class="sec">三、炉台运行数据
       <span style="display:flex;gap:6px;">
-      <button class="cambtn xl" id="btnXls">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>
-        上传Excel
-      </button>
       <label class="cambtn" for="camFile" id="btnCam">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-        拍照识别
+        比表识别
       </label>
       </span>
     </div>
     <input id="camFile" type="file" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px;">
-    <input id="xlsFile" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px;">
     <div id="ocrStatus"></div>
-    <div class="orline" id="orLine">没有Key？<a id="orLink">粘贴小微识别结果</a>（免费，同样自动填表）</div>
-    <div id="orPaste">
-      <textarea id="orText" placeholder="把小微的回复原样粘贴到这里，例如：&#10;1炉:3.1&#10;4炉:4.8（3:20）"></textarea>
-      <button class="btn" id="orGo">解析并填入比表列</button>
-    </div>
     <div id="keyState" class="keystate"></div>
     <table class="ftable">
       <tr><th>炉号</th><th>产量<br>kg</th><th>风量</th><th>松装<br>kg</th><th>比表<br>m²/g</th></tr>
@@ -849,19 +839,36 @@ async function callVision(b64){
   const model = c.model || PROVIDERS.zhipu.model;
   const key = c.key || '';
   if(!key){
-    throw new Error('没有配置 API Key。请点「菜单 → 配置」填写并保存 Key。');
+    throw new Error('没有配置 API Key。请到 config.html 填写并保存 Key。');
   }
-  const res=await fetch(base,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
-    body:JSON.stringify({model,temperature:0,max_tokens:4096,messages:[
-      {role:'system',content:OCR_PROMPT},
-      {role:'user',content:[{type:'text',text:'识别这张取样记录表，按要求输出 JSON。'},{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}}]}]})});
-  const raw=await res.text();
-  if(!res.ok)throw new Error('HTTP '+res.status+'：'+raw.slice(0,150));
-  const j=JSON.parse(raw);
-  let txt=(j.choices[0].message.content||'').replace(/```json|```/g,'').trim();
-  const m=txt.match(/\{[\s\S]*\}/);
-  if(!m)throw new Error('返回不是JSON：'+txt.slice(0,150));
-  return JSON.parse(m[0]);
+  const body=JSON.stringify({model,temperature:0,max_tokens:4096,messages:[
+    {role:'system',content:OCR_PROMPT},
+    {role:'user',content:[{type:'text',text:'识别这张取样记录表，按要求输出 JSON。'},{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}}]}]});
+  const headers={'Content-Type':'application/json','Authorization':'Bearer '+key};
+  // 多通道依次尝试：直连 → CORS 中转
+  const urls=[base, 'https://corsproxy.io/?url='+encodeURIComponent(base)];
+  let lastErr=null;
+  for(let i=0;i<urls.length;i++){
+    try{
+      const res=await fetch(urls[i],{method:'POST',headers,body});
+      const raw=await res.text();
+      if(!res.ok){
+        const err=new Error('HTTP '+res.status+'：'+raw.slice(0,150));
+        err.status=res.status;
+        if(res.status===401||res.status===403||res.status===404||res.status===429) throw err; // 配置类错误不重试
+        lastErr=err; continue;
+      }
+      const j=JSON.parse(raw);
+      let txt=(j.choices[0].message.content||'').replace(/```json|```/g,'').trim();
+      const m=txt.match(/\{[\s\S]*\}/);
+      if(!m)throw new Error('返回不是JSON：'+txt.slice(0,150));
+      return JSON.parse(m[0]);
+    }catch(e){
+      if(e.status===401||e.status===403||e.status===404||e.status===429) throw e;
+      lastErr=e; // 网络错误继续下一通道
+    }
+  }
+  throw lastErr||new Error('网络请求失败');
 }
 
 const t2m=t=>{const m=String(t||'').trim().match(/^(\d{1,2})[:：点](\d{2})?$/);return m?(+m[1])*60+(+m[2]||0):-1;};
@@ -928,235 +935,6 @@ async function doOCR(file){
   camBtn.disabled=false;
   camFile.value='';
 }
-
-/* ============ 上传 Excel（无需 Key） ============ */
-const xlsBtn=$('#btnXls'),xlsFile=$('#xlsFile');
-xlsBtn.onclick=()=>xlsFile.click();
-xlsFile.onchange=async e=>{
-  const f=e.target.files[0];if(!f)return;
-  xlsBtn.disabled=true;showOcr('读取 Excel 中…');
-  try{
-    if(/\.xls$/i.test(f.name))throw new Error('暂不支持老的 .xls 格式，请在 Excel/WPS 里"另存为 .xlsx"后再传。');
-    const rows=await XlsxLite.readXlsx(f);
-    const recs=XlsxLite.sheetToRecords(rows);
-    if(!recs.length)throw new Error('没读到数据行，请确认表里有"炉号"和"实测混样比表"列。');
-    await applyResult(recs,'Excel');
-  }catch(err){
-    showOcr('Excel 读取失败：'+err.message,true);
-  }
-  xlsBtn.disabled=false;xlsFile.value='';
-};
-
-/* ==================== 配置页逻辑 ==================== */
-const $cfg = s => document.querySelector('#pane-config ' + s);
-
-/* 服务商切换自动填地址/模型 */
-(function bindProvider(){
-  const sel = $cfg('#cfgProvider');
-  if (!sel) return;
-  sel.onchange = () => {
-    const p = PROVIDERS[sel.value];
-    if (p && sel.value !== 'custom') {
-      $cfg('#cfgBase').value = p.base;
-      $cfg('#cfgModel').value = p.model;
-    }
-  };
-})();
-
-/* 载入配置到表单 */
-function fillCfgForm() {
-  const c = readCfg();
-  if (!$cfg('#cfgProvider')) return;
-  $cfg('#cfgProvider').value = c.provider || 'zhipu';
-  $cfg('#cfgBase').value = c.base || '';
-  $cfg('#cfgModel').value = c.model || '';
-  $cfg('#cfgKey').value = c.key || '';
-  $cfg('#cfgTeam').value = c.team || '';
-  $cfg('#cfgSurfaceMax').value = c.surfaceMax || 10;
-  $cfg('#cfgFurnaces').value = (c.furnaces || []).join(',');
-  renderCfgCrew();
-  refreshCfgKeyState();
-  refreshDataStat();
-}
-function refreshCfgKeyState() {
-  const el = $cfg('#cfgKeyState');
-  if (!el) return;
-  const c = readCfg();
-  el.className = 'pill ' + (c.key ? 'on' : 'off');
-  el.textContent = c.key ? ('已配置 · ' + (PROVIDERS[c.provider] || {}).name + ' · 尾号 ' + c.key.slice(-4)) : '未配置';
-}
-
-/* 人员列表渲染 */
-function renderCfgCrew() {
-  const box = $cfg('#cfgCrewList');
-  if (!box) return;
-  const c = readCfg();
-  box.innerHTML = (c.crew || []).map((n, i) =>
-    '<span class="chip">' + n + '<i data-del="' + i + '">×</i></span>'
-  ).join('') || '<span style="color:#bbb;font-size:12px;">还没有人员，请在下方添加</span>';
-  box.querySelectorAll('[data-del]').forEach(el => {
-    el.onclick = () => {
-      const i = +el.dataset.del;
-      const cc = readCfg();
-      const name = cc.crew[i];
-      if (!confirm('删除人员「' + name + '」？\n（已保存的历史日志不受影响）')) return;
-      cc.crew.splice(i, 1);
-      STORE.set(STORE.CFG, cc);
-      fillCfgForm();
-      renderCrew();
-      toast('已删除 ' + name);
-    };
-  });
-}
-
-/* 保存识别接口 */
-$cfg('#cfgSave').onclick = () => {
-  const c = readCfg();
-  c.provider = $cfg('#cfgProvider').value;
-  c.base = $cfg('#cfgBase').value.trim();
-  c.model = $cfg('#cfgModel').value.trim();
-  c.key = $cfg('#cfgKey').value.trim();
-  if (c.key && !c.base) { toast('请填写接口地址'); return; }
-  if (c.key && !c.model) { toast('请填写模型名'); return; }
-  STORE.set(STORE.CFG, c);
-  refreshCfgKeyState();
-  refreshKeyState();
-  toast('✓ 已保存，日志页可直接使用');
-};
-
-/* 保存基础信息 */
-$cfg('#cfgSave2').onclick = () => {
-  const c = readCfg();
-  c.team = $cfg('#cfgTeam').value.trim();
-  const v = parseFloat($cfg('#cfgSurfaceMax').value);
-  c.surfaceMax = (isFinite(v) && v > 0) ? v : 10;
-  STORE.set(STORE.CFG, c);
-  toast('✓ 基础信息已保存');
-};
-
-/* 保存炉号 */
-$cfg('#cfgSave3').onclick = () => {
-  const raw = $cfg('#cfgFurnaces').value;
-  const arr = raw.split(/[,，\s]+/).map(s => parseInt(s)).filter(n => n > 0);
-  const uniq = [...new Set(arr)];
-  if (!uniq.length) { toast('请至少填一个炉号'); return; }
-  const c = readCfg();
-  c.furnaces = uniq;
-  STORE.set(STORE.CFG, c);
-  rebuildFurnaceTable();
-  toast('✓ 炉号已保存（' + uniq.length + ' 个）');
-};
-
-/* 添加人员 */
-$cfg('#cfgAddCrew').onclick = () => {
-  const inp = $cfg('#cfgNewCrew');
-  const name = inp.value.trim();
-  if (!name) { toast('请输入姓名'); return; }
-  const c = readCfg();
-  if (c.crew.includes(name)) { toast('已存在该人员'); return; }
-  c.crew.push(name);
-  STORE.set(STORE.CFG, c);
-  inp.value = '';
-  fillCfgForm();
-  renderCrew();
-  toast('✓ 已添加 ' + name);
-};
-
-/* 测试连通性 */
-$cfg('#cfgTest').onclick = async () => {
-  const btn = $cfg('#cfgTest');
-  const c = readCfg();
-  // 未保存时用表单里的值测
-  const base = $cfg('#cfgBase').value.trim() || c.base;
-  const model = $cfg('#cfgModel').value.trim() || c.model;
-  const key = $cfg('#cfgKey').value.trim() || c.key;
-  if (!key) { toast('请先填写 API Key'); return; }
-  if (!base || !model) { toast('请填写接口地址和模型名'); return; }
-  btn.disabled = true; btn.textContent = '测试中…';
-  try {
-    const r = await fetch(base, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
-      body: JSON.stringify({ model, messages: [{ role: 'user', content: 'hi' }], max_tokens: 8 })
-    });
-    const t = await r.text();
-    if (r.ok) {
-      toast('✓ Key 可用，接口连通正常', 2600);
-    } else {
-      let hint = '';
-      if (r.status === 401) hint = 'Key 不正确或已失效';
-      else if (r.status === 403) hint = '无权限访问该模型';
-      else if (r.status === 429) hint = '调用太频繁，稍后再试';
-      else if (r.status === 404) hint = '接口地址不对';
-      toast('✗ 失败 ' + r.status + (hint ? '：' + hint : '') + '\n' + t.slice(0, 80), 4000);
-    }
-  } catch (e) {
-    toast('✗ 网络请求失败：' + e.message + '\n（检查网络或接口地址）', 4000);
-  }
-  btn.disabled = false; btn.textContent = '测试连通';
-};
-
-/* ==================== 数据备份 ==================== */
-function refreshDataStat() {
-  const el = $cfg('#cfgDataStat');
-  if (!el) return;
-  const keys = STORE.keys('dr_log_');
-  el.textContent = keys.length ? (keys.length + ' 条（按日期+班次）') : '暂无数据';
-}
-
-$cfg('#cfgExport').onclick = () => {
-  const data = { _type: 'daily-report-backup', _ver: 1, _time: new Date().toISOString(), cfg: readCfg(), logs: {} };
-  STORE.keys('dr_log_').forEach(k => { data.logs[k] = STORE.get(k, null); });
-  // 兼容旧 key
-  ['rep_cfg_kKey','rep_cfg_kBase','rep_cfg_kModel','log_crew_sel','lastPane'].forEach(k => {
-    const v = localStorage.getItem(k);
-    if (v) data.logs['__legacy_' + k] = v;
-  });
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  const d = new Date();
-  a.href = URL.createObjectURL(blob);
-  a.download = '日报备份_' + d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0') + '.json';
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
-  toast('已导出备份文件', 2200);
-};
-
-$cfg('#cfgImportBtn').onclick = () => $cfg('#cfgImportFile').click();
-$cfg('#cfgImportFile').onchange = e => {
-  const f = e.target.files[0]; if (!f) return;
-  const fr = new FileReader();
-  fr.onload = () => {
-    try {
-      const data = JSON.parse(fr.result);
-      if (!data || data._type !== 'daily-report-backup') throw new Error('不是本系统的备份文件');
-      if (!confirm('导入将覆盖当前配置和同日期数据，确定继续？')) return;
-      if (data.cfg) STORE.set(STORE.CFG, Object.assign({}, DEFAULT_CFG, data.cfg));
-      Object.keys(data.logs || {}).forEach(k => {
-        if (k.startsWith('dr_log_')) STORE.set(k, data.logs[k]);
-      });
-      readCfg();
-      fillCfgForm();
-      renderCrew();
-      rebuildFurnaceTable();
-      renderAll();
-      refreshKeyState();
-      toast('✓ 已恢复 ' + Object.keys(data.logs || {}).length + ' 项数据', 2500);
-    } catch (err) {
-      toast('导入失败：' + err.message, 3000);
-    }
-  };
-  fr.readAsText(f);
-  e.target.value = '';
-};
-
-/* 小微粘贴兜底 */
-$('#orLink').onclick=()=>{const p=$('#orPaste');p.style.display=p.style.display==='none'?'block':'none';};
-$('#orGo').onclick=()=>{
-  const rows=parsePasteText($('#orText').value);
-  if(!rows.length){showOcr('未解析到数据，请确认粘贴的是小微回复（如“1炉:3.1”格式）。',true);return;}
-  applyResult(rows,'解析');
-};
 
 /* ============ 左侧菜单（details 纯 CSS 展开，JS 只管切页） ============ */
 const navWrap=document.getElementById('navWrap'),logBar=document.getElementById('logBar');

@@ -279,21 +279,31 @@ $('#btnTest').onclick = async () => {
   btn.disabled = true; btn.textContent = '测试中…';
   setStatus('no', '正在连接接口…');
   const t0 = Date.now();
+  const tryUrls=[base,'https://corsproxy.io/?url='+encodeURIComponent(base)];
+  let res=null,usedUrl=base;
   try{
-    const res = await fetch(base, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + key },
-      body: JSON.stringify({
-        model,
-        messages:[{ role:'user', content:'hi' }],
-        max_tokens: 8
-      })
-    });
+    for(const u of tryUrls){
+      try{
+        res = await fetch(u, {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + key },
+          body: JSON.stringify({
+            model,
+            messages:[{ role:'user', content:'hi' }],
+            max_tokens: 8
+          })
+        });
+        usedUrl=u;
+        if(res.ok) break;
+        if([401,403,404,429].includes(res.status)) break;
+      }catch(e2){ res=null; continue; }
+    }
+    if(!res) throw new Error('直连与中转通道均失败');
     const txt = await res.text();
     const ms = Date.now() - t0;
     if(res.ok){
       setStatus('ok', '✓ 连接成功（' + ms + 'ms）· Key 可用');
-      toast('✓ Key 可用，可以拍照识别了', 2200);
+      toast('✓ Key 可用，可以识别了', 2200);
     }else{
       let hint = '';
       if(res.status === 401) hint = 'Key 不正确或已失效';
@@ -307,7 +317,7 @@ $('#btnTest').onclick = async () => {
   }catch(e){
     setStatus('err', '✗ 网络请求失败');
     toast('✗ 网络请求失败：' + e.message +
-      '\n\n可能原因：\n①手机网络无法访问该接口域名\n②接口地址填写错误\n③页面在微信内打开被限制，请用浏览器打开', 5000);
+      '\n\n可能原因：\n①手机网络无法访问该接口域名（直连与中转都不通）\n②接口地址填写错误\n③页面在微信内打开被限制，请用浏览器打开', 5000);
   }
   btn.disabled = false; btn.textContent = '测试连通';
 };
