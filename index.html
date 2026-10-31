@@ -729,6 +729,9 @@ const OCR_PROMPT=`你是精确的表格识别引擎。图片是一张中文"取�
 格式：{"rows":[{"no":8,"time":"0:00","surface":4.1}]}
 规则：1.每个对象只保留 no(炉号数字)/time(取样时间)/surface(实测混样比表数值) 三个字段。2.保持原行顺序与行数，一行不漏，合并单元格续行炉号沿用上一行；即使某行实测混样比表为空，也必须输出该行对象(surface 填 null)，严禁省略空行。3.实测混样比表为空则 surface 填 null。4.只转录"实测混样比表"列，不要抄成"计划比表"（计划通常是 3-4.5 或 23-29 这种区间格式）。5.数字保留原样不四舍五入。6.模糊无法确定填 null，不要猜。`;
 
+const OCR_MD_PROMPT=`<image>
+<|grounding|>把图片中的表格完整转成 markdown 表格：保留表头、所有行与列，一字不落。合并单元格的续行，炉号那一格留空。不要省略、不要解释、不要添加其他文字，只输出 markdown 表格。`;
+
 /* ================= 统一存储层（带容错与备份） ================= */
 const STORE = {
   PREFIX: 'dr_',        // 统一前缀
@@ -898,9 +901,11 @@ async function callVision(b64){
   if(!key){
     throw new Error('没有配置 API Key。请到 config.html 填写并保存 Key。');
   }
-  const body=JSON.stringify({model,temperature:0,max_tokens:1024,messages:[
-    {role:'system',content:OCR_PROMPT},
-    {role:'user',content:[{type:'text',text:'识别这张取样记录表，按要求输出 JSON。'},{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}}]}]});
+  const isOCR = /OCR|Paddle|paddle/i.test(model);
+  const messages = isOCR
+    ? [{role:'user',content:[{type:'text',text:OCR_MD_PROMPT},{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}}]}]
+    : [{role:'system',content:OCR_PROMPT},{role:'user',content:[{type:'text',text:'识别这张取样记录表，按要求输出 JSON。'},{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}}]}];
+  const body=JSON.stringify({model,temperature:0,max_tokens:isOCR?2048:1024,messages});
   const headers={'Content-Type':'application/json','Authorization':'Bearer '+key};
   // HTTP 报错立即抛出真实原因；只有网络异常才换通道
   const urls=[base,'https://corsproxy.io/?url='+encodeURIComponent(base)];
@@ -912,10 +917,19 @@ async function callVision(b64){
       if(!res.ok){
         let detail=raw.slice(0,200);
         try{const je=JSON.parse(raw);if(je.error&&je.error.message)detail=je.error.message+(je.error.code?'（code '+je.error.code+'）':'');}catch(e){}
-        throw new Error('HTTP '+res.status+'：'+detail);
+        let friendly='';
+        if(res.status===402)friendly='（账户余额不足，请到平台充值后重试）';
+        else if(res.status===401)friendly='（Key 无效或已过期）';
+        else if(res.status===429)friendly='（调用过于频繁，稍后再试）';
+        throw new Error('HTTP '+res.status+friendly+'：'+detail);
       }
       const j=JSON.parse(raw);
-      let txt=(j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content||'').replace(/```json|```/g,'').trim();
+      let txt=(j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content||'').replace(/```json|```markdown|```md|```/g,'').trim();
+      if(isOCR){
+        const rows=parseMarkdownTable(txt);
+        if(!rows.length)throw new Error('OCR 结果解析失败：'+txt.slice(0,150));
+        return {rows};
+      }
       const data=extractJSON(txt);
       if(!data||!Array.isArray(data.rows)||!data.rows.length)throw new Error('返回内容无法解析成表格：'+txt.slice(0,120));
       return data;
@@ -938,6 +952,36 @@ function parsePasteText(txt){
     if(m){rows.push({no:m[1],time:m[3]||'',surface:m[2]==='—'||m[2]==='-'?null:m[2]});continue;}
     const p=line.split(/[,，\t]+/).map(s=>s.trim());
     if(p.length>=3)rows.push({no:p[0],time:p[1],surface:p[2]});
+  }
+  return rows;
+}
+// 解析 markdown 表格：定位「炉号」列与「实测混样比表」列
+function parseMarkdownTable(txt){
+  const lines=txt.split('\n').map(l=>l.trim()).filter(l=>l.includes('|'));
+  if(lines.length<2) return [];
+  const header=lines[0].split('|').map(x=>x.trim());
+  let colNo=-1,colSurface=-1,colTime=-1;
+  header.forEach((h,i)=>{
+    if(/炉号|^炉$/.test(h)) colNo=i;
+    else if(/实测/.test(h)&&/比表/.test(h)) colSurface=i;
+    else if(/时间/.test(h)) colTime=i;
+  });
+  if(colSurface<0){           // 表头「实测」没识别到 → 取最右侧的比表列（实测在计划右边）
+    const cand=[]; header.forEach((h,i)=>{ if(/比表/.test(h)) cand.push(i); });
+    if(cand.length) colSurface=cand[cand.length-1];
+  }
+  if(colNo<0||colSurface<0) return [];
+  const rows=[]; let lastNo=null, lastTime='';
+  for(let i=1;i<lines.length;i++){
+    if(/^\|?[\s:|-]+\|?$/.test(lines[i])) continue;   // 跳过 --- 分隔行
+    const cells=lines[i].split('|').map(x=>x.trim());
+    let no=parseInt(cells[colNo]);
+    if(!no) no=lastNo;                                   // 合并单元格沿用上一炉号
+    if(!no) continue;
+    lastNo=no;
+    const tm=(colTime>=0?cells[colTime]:'')||'';
+    if(tm) lastTime=tm;
+    rows.push({no, time:tm||lastTime, surface:parseSurfaceVal(cells[colSurface])});
   }
   return rows;
 }
