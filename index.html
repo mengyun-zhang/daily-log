@@ -1051,9 +1051,10 @@ function loadTessLib(){
   if(_tessLoading)return _tessLoading;
   const urls=[
     'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js',
+    'https://jsd.cdn.zzko.cn/npm/tesseract.js@5/dist/tesseract.min.js',
     'https://unpkg.com/tesseract.js@5/dist/tesseract.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js',
-    'https://cdn.staticfile.net/tesseract.js/5.1.1/tesseract.min.js'
+    'https://cdn.staticfile.net/tesseract.js/5.1.1/tesseract.min.js',
+    'https://cdn.bootcdn.net/ajax/libs/tesseract.js/5.1.1/tesseract.min.js'
   ];
   _tessLoading=new Promise((res,rej)=>{
     let i=0;
