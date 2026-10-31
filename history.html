@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="历史日报">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a5fb4">
+<title>历史日报</title>
+<style>
+:root{--blue:#1a5fb4;--bg:#f5f6f7;--line:#e3e8ef;--warn:#c0392b;--warnbg:#fff4f4;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;background:var(--bg);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:#222;font-size:15px;}
+.wrap{max-width:520px;margin:0 auto;padding:16px 12px 90px;}
+.backbtn{display:inline-flex;align-items:center;gap:7px;color:var(--blue);font-size:16px;text-decoration:none;margin-bottom:14px;font-weight:600;background:#eef4fb;border:1px solid #d5e4f7;border-radius:22px;padding:8px 18px 8px 13px;transition:all .15s;width:fit-content;}
+.backbtn svg{width:17px;height:17px;flex-shrink:0;}
+.backbtn:active{background:#dfeaf8;transform:scale(.97);}
+.card{background:#fff;border-radius:10px;padding:16px 14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+
+/* 日期头 + 按钮 */
+.datehead{background:linear-gradient(135deg,#1a5fb4,#2f7bd9);color:#fff;border-radius:12px;padding:18px 16px;margin-bottom:10px;cursor:pointer;user-select:none;-webkit-user-select:none;}
+.datehead .d{font-size:22px;font-weight:700;line-height:1.3;}
+.datehead .w{font-size:12px;opacity:.85;margin-top:4px;}
+.datehead .tip{font-size:11px;opacity:.7;margin-top:2px;}
+.dnav{display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px;}
+.dnav button{border:1px solid #d6dde6;background:#fff;color:#333;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;}
+.dnav button.on{background:var(--blue);color:#fff;border-color:var(--blue);}
+.dnav button:active{transform:scale(.96);}
+
+/* 日历弹层 */
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:50;align-items:center;justify-content:center;}
+.mask.on{display:flex;}
+.calbox{background:#fff;border-radius:14px;width:calc(100% - 40px);max-width:420px;padding:14px 14px 18px;box-shadow:0 8px 30px rgba(0,0,0,.2);}
+.calhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.calhead .t{font-size:16px;font-weight:700;}
+.calhead button{border:0;background:#eef2f7;color:#333;border-radius:7px;padding:6px 12px;font-size:15px;cursor:pointer;}
+.calweek{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:11px;color:#999;padding:4px 0 8px;}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.calgrid .cell{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:8px;font-size:14px;color:#333;cursor:pointer;position:relative;}
+.calgrid .cell.blank{cursor:default;}
+.calgrid .cell:hover{background:#f2f5f9;}
+.calgrid .cell.today{color:var(--blue);font-weight:700;}
+.calgrid .cell.sel{background:var(--blue);color:#fff;font-weight:700;}
+.calgrid .cell .dot{width:5px;height:5px;border-radius:50%;background:#ff8a00;margin-top:2px;}
+.calgrid .cell.sel .dot{background:#fff;}
+.calfoot{text-align:center;margin-top:10px;}
+.calfoot button{border:0;background:#eef2f7;color:#666;border-radius:7px;padding:7px 16px;font-size:12px;cursor:pointer;}
+
+/* 历史内容 */
+.sec{font-size:14px;font-weight:600;color:var(--blue);border-left:3px solid var(--blue);padding-left:8px;margin:0 0 10px;display:flex;align-items:center;justify-content:space-between;}
+.sec .pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;background:#e6f6ea;color:#0a7a2f;}
+.hpeople{font-size:13px;color:#555;margin-bottom:10px;line-height:1.7;}
+.htable{width:100%;border-collapse:collapse;font-size:13px;}
+.htable th{background:#eef2f7;padding:7px 4px;border:1px solid #dfe4ea;font-size:12px;text-align:center;}
+.htable td{padding:7px 4px;border:1px solid #e8ebef;text-align:center;}
+.htable tr.warn td{background:#fff8e6;}
+.htable tr.tot td{background:#eef2f7;font-weight:600;}
+.empty{text-align:center;color:#b4bcc6;padding:50px 20px;font-size:13px;line-height:2;}
+.empty svg{width:44px;height:44px;color:#d3dae3;display:block;margin:0 auto 8px;}
+.toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.82);color:#fff;padding:13px 22px;border-radius:10px;font-size:14px;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;max-width:80%;text-align:center;line-height:1.6;}
+.toast.on{opacity:1;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="backbtn" href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>返回日志</a>
+
+  <div class="datehead" id="dateHead">
+    <div class="d" id="dateText">2026年10月31日</div>
+    <div class="w" id="weekText">周六</div>
+    <div class="tip">点击日期可切换，查看历史日报</div>
+  </div>
+
+  <div class="dnav">
+    <button id="prevDay">‹ 前一天</button>
+    <button id="todayBtn">今天</button>
+    <button id="nextDay">后一天 ›</button>
+  </div>
+
+  <div id="histContent"></div>
+</div>
+
+<!-- 日历弹层 -->
+<div class="mask" id="calMask">
+  <div class="calbox">
+    <div class="calhead">
+      <button id="prevMon">‹</button>
+      <span class="t" id="calTitle">2026年10月</span>
+      <button id="nextMon">›</button>
+    </div>
+    <div class="calweek"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+    <div class="calgrid" id="calGrid"></div>
+    <div class="calfoot"><button id="calClose">关闭</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= 存储读取（与日志页同源 localStorage） ================= */
+const $ = s => document.querySelector(s);
+function lsGet(k){
+  try{ const raw=localStorage.getItem(k); return raw?JSON.parse(raw):null; }catch(e){ return null; }
+}
+function lsKeys(prefix){
+  const out=[];
+  try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.startsWith(prefix))out.push(k); } }catch(e){}
+  return out;
+}
+function toast(msg,ms){
+  const t=$('#toast'); t.textContent=msg; t.classList.add('on');
+  clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('on'),ms||1800);
+}
+
+/* ================= 日期状态 ================= */
+const TODAY=new Date();TODAY.setHours(0,0,0,0);
+let cur=new Date(TODAY);
+const WD='日一二三四五六';
+const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const fmtDate=d=>`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+const HIST_PREFIX='dr_hist_';
+
+/* 有历史记录的日期集合 */
+function histDates(){
+  const s=new Set();
+  lsKeys(HIST_PREFIX).forEach(k=>{
+    const d=k.slice(HIST_PREFIX.length);
+    if(/^\d{4}-\d{2}-\d{2}$/.test(d))s.add(d);
+  });
+  return s;
+}
+
+/* ================= 渲染日期头 ================= */
+function renderDateHead(){
+  $('#dateText').textContent=fmtDate(cur);
+  $('#weekText').textContent='周'+WD[cur.getDay()];
+  const isToday=iso(cur)===iso(TODAY);
+  $('#todayBtn').className=isToday?'on':'';
+}
+
+/* ================= 渲染历史内容 ================= */
+function renderContent(){
+  const d=iso(cur);
+  const hist=lsGet(HIST_PREFIX+d);
+  const box=$('#histContent');
+  if(!hist || !Object.keys(hist).length){
+    box.innerHTML=`<div class="card"><div class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+      该日期暂无历史日报<br><span style="font-size:11px">在日志页点击「生成日报」后会自动保存到这里</span></div></div>`;
+    return;
+  }
+  let html='';
+  // 先白班后夜班
+  const order=['白班','夜班'];
+  order.forEach(sh=>{
+    const rec=hist[sh];
+    if(!rec)return;
+    let rows='';
+    rec.rows.forEach(r=>{
+      const w=r.surface!==null&&r.surface>10;
+      rows+=`<tr${w?' class="warn"':''}><td>${r.no}#</td><td>${r.output??'—'}</td><td>${r.airflow??'—'}</td><td>${r.density??'—'}</td><td>${r.surface??'—'}</td></tr>`;
+    });
+    const saved=rec.savedAt?new Date(rec.savedAt).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+    html+=`<div class="card">
+      <div class="sec">${sh}<span class="pill">${rec.act} 台在产</span></div>
+      <div class="hpeople">当班人员：${(rec.people||[]).join('、')}（共${(rec.people||[]).length}人）${rec.team?' · '+rec.team:''}</div>
+      <table class="htable"><tr><th>炉号</th><th>产量(kg)</th><th>风量</th><th>松装(kg)</th><th>比表(m²/g)</th></tr>
+      ${rows}<tr class="tot"><td>合计</td><td>${rec.total}</td><td colspan="3">在产 ${rec.act} 台 · 均值 ${rec.avg} kg</td></tr></table>
+      ${saved?`<div style="font-size:11px;color:#aaa;margin-top:8px;text-align:right">生成于 ${saved}</div>`:''}
+    </div>`;
+  });
+  box.innerHTML=html;
+}
+
+/* ================= 日历 ================= */
+let viewY=TODAY.getFullYear(), viewM=TODAY.getMonth();
+function renderCalendar(){
+  $('#calTitle').textContent=`${viewY}年${viewM+1}月`;
+  const dates=histDates();
+  const grid=$('#calGrid');
+  grid.innerHTML='';
+  const first=new Date(viewY,viewM,1);
+  const startDow=(first.getDay()+6)%7; // 周一=0
+  const daysInMonth=new Date(viewY,viewM+1,0).getDate();
+  for(let i=0;i<startDow;i++){ const c=document.createElement('div'); c.className='cell blank'; grid.appendChild(c); }
+  for(let dd=1;dd<=daysInMonth;dd++){
+    const cell=document.createElement('div');
+    cell.className='cell';
+    const d=new Date(viewY,viewM,dd);
+    const key=iso(d);
+    if(key===iso(TODAY))cell.classList.add('today');
+    if(key===iso(cur))cell.classList.add('sel');
+    cell.innerHTML=`<span>${dd}</span>${dates.has(key)?'<span class="dot"></span>':''}`;
+    cell.onclick=()=>{ cur=new Date(viewY,viewM,dd); renderDateHead(); renderContent(); closeCal(); };
+    grid.appendChild(cell);
+  }
+}
+function openCal(){
+  viewY=cur.getFullYear(); viewM=cur.getMonth();
+  renderCalendar();
+  $('#calMask').classList.add('on');
+}
+function closeCal(){ $('#calMask').classList.remove('on'); }
+
+$('#dateHead').onclick=openCal;
+$('#prevMon').onclick=()=>{ viewM--; if(viewM<0){viewM=11;viewY--;} renderCalendar(); };
+$('#nextMon').onclick=()=>{ viewM++; if(viewM>11){viewM=0;viewY++;} renderCalendar(); };
+$('#calClose').onclick=closeCal;
+$('#calMask').onclick=e=>{ if(e.target===$('#calMask'))closeCal(); };
+
+/* 前一天 / 后一天 / 今天 */
+$('#prevDay').onclick=()=>{ cur.setDate(cur.getDate()-1); renderDateHead(); renderContent(); };
+$('#nextDay').onclick=()=>{ cur.setDate(cur.getDate()+1); renderDateHead(); renderContent(); };
+$('#todayBtn').onclick=()=>{ cur=new Date(TODAY); renderDateHead(); renderContent(); };
+
+/* ================= 启动 ================= */
+renderDateHead();
+renderContent();
+</script>
+</body>
+</html>

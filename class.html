@@ -5,72 +5,60 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="排班">
-<meta name="theme-color" content="#3cb371">
+<meta name="theme-color" content="#1a5fb4">
 <title>排班表</title>
 <style>
-:root{--g1:#43c66b;--g2:#2fa85a;--bai:#7bc86c;--ye:#6c7ae0;--xiu:#35b8b0;--bg:#f4f6f4;}
+:root{--g1:#2f7bd9;--g2:#1a5fb4;--bai:#7bc86c;--ye:#6c7ae0;--xiu:#35b8b0;--bg:#f5f6f7;--line:#e3e8ef;}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 body{margin:0;background:var(--bg);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:#333;font-size:15px;}
 /* ===== 头部 ===== */
-.hero{background:linear-gradient(160deg,#4ecb76,#2fa85a 70%,#28964e);color:#fff;padding:18px 16px 78px;position:relative;border-radius:0 0 22px 22px;}
+.hero{background:linear-gradient(160deg,#3b82d9,#1a5fb4 70%,#15539a);color:#fff;padding:16px 16px 74px;position:relative;border-radius:0 0 22px 22px;}
 .hero .row1{display:flex;justify-content:space-between;align-items:center;font-size:15px;opacity:.95;}
+.backbtn{display:inline-flex;align-items:center;gap:7px;font-size:16px;font-weight:600;color:#fff;text-decoration:none;cursor:pointer;user-select:none;-webkit-user-select:none;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);border-radius:22px;padding:7px 16px 7px 12px;}
+.backbtn svg{width:16px;height:16px;flex-shrink:0;}
+.backbtn:active{background:rgba(255,255,255,.32);}
 .hero .ym{text-align:center;}
-.hero .year{font-size:15px;letter-spacing:6px;opacity:.9;}
-.hero .month{font-size:34px;font-weight:700;letter-spacing:10px;margin-top:2px;}
+.hero .year{font-size:14px;letter-spacing:6px;opacity:.9;}
+.hero .month{font-size:32px;font-weight:700;letter-spacing:8px;margin-top:2px;}
 .mnav{position:absolute;top:50%;left:14px;right:14px;transform:translateY(-50%);display:flex;justify-content:space-between;pointer-events:none;}
 .mnav button{pointer-events:auto;border:0;background:rgba(255,255,255,.22);color:#fff;width:34px;height:34px;border-radius:50%;font-size:17px;cursor:pointer;}
 .mnav button:active{background:rgba(255,255,255,.4);}
-.hero .back{font-size:20px;cursor:pointer;user-select:none;}
 /* ===== 日历卡 ===== */
-.calcard{margin:-62px 12px 0;background:#fff;border-radius:16px;box-shadow:0 4px 18px rgba(0,0,0,.10);padding:12px 8px 8px;}
-.weekrow{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:14px;color:#666;padding:4px 0 8px;}
+.calcard{margin:-60px 10px 0;background:#fff;border-radius:16px;box-shadow:0 4px 18px rgba(0,0,0,.10);padding:12px 8px 6px;}
+.weekrow{display:grid;grid-template-columns:repeat(7,1fr);text-align:center;font-size:13px;color:#666;padding:4px 0 8px;}
 .weekrow span:last-child{color:var(--g2);}
-.grid{display:grid;grid-template-columns:repeat(7,1fr);row-gap:8px;}
-.cell{text-align:center;padding:4px 1px 6px;border-radius:10px;cursor:pointer;user-select:none;position:relative;}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);row-gap:6px;}
+.cell{text-align:center;padding:4px 1px 6px;border-radius:10px;cursor:pointer;user-select:none;-webkit-user-select:none;position:relative;min-height:56px;}
 .cell:active{background:#f0f4f0;}
-.cell .dnum{font-size:17px;font-weight:600;line-height:1.25;}
+.cell .dnum{font-size:16px;font-weight:600;line-height:1.25;}
 .cell .lunar{font-size:9px;color:#b3b9b3;line-height:1.4;min-height:13px;}
 .cell .dnum.weekend{color:#e05a5a;}
 .cell .lunar.fest{color:#e05a5a;}
-.cell .tag{display:inline-block;margin-top:3px;font-size:10px;color:#fff;border-radius:5px;padding:2px 7px;min-width:34px;}
+.cell .tag{display:inline-block;margin-top:3px;font-size:10px;color:#fff;border-radius:5px;padding:2px 7px;min-width:32px;}
 .tag.bai{background:var(--bai);}
 .tag.ye{background:var(--ye);}
 .tag.xiu{background:var(--xiu);}
 .cell.other{opacity:.45;}
-.cell.today .dnum{color:var(--g2);}
-.cell.today::after{content:"";position:absolute;bottom:1px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--g2);}
-.cell.sel{background:#e7f5ec;box-shadow:inset 0 0 0 1.5px var(--g1);}
+.cell.today{background:var(--g2);}
+.cell.today .dnum{color:#fff;}
+.cell.today .lunar{color:rgba(255,255,255,.85);}
+.cell.today .lunar.fest{color:#fff;}
+.cell.sel{background:#e8f0fb;box-shadow:inset 0 0 0 2px var(--g1);}
 .legend{display:flex;justify-content:center;gap:14px;padding:10px 0 2px;font-size:11px;color:#888;}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px;}
 /* ===== 底部面板 ===== */
-.panel{position:fixed;left:0;right:0;bottom:0;background:#fff;border-radius:18px 18px 0 0;box-shadow:0 -4px 20px rgba(0,0,0,.12);padding:12px 12px calc(14px + env(safe-area-inset-bottom));z-index:50;}
+.panel{position:fixed;left:0;right:0;bottom:0;background:#fff;border-radius:18px 18px 0 0;box-shadow:0 -4px 20px rgba(0,0,0,.12);padding:12px 12px calc(12px + env(safe-area-inset-bottom));z-index:50;max-width:520px;margin:0 auto;}
 .prow{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
-.cyclechip{display:inline-flex;align-items:center;gap:5px;border:1.5px solid #bfe3cd;color:var(--g2);background:#eefaf2;border-radius:9px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;}
-.prow .fold{color:#999;font-size:13px;cursor:pointer;user-select:none;}
+.cyclechip{display:inline-flex;align-items:center;gap:5px;border:1.5px solid #c9dbf5;color:var(--g2);background:#eef4fb;border-radius:9px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer;}
+.selcount{font-size:13px;color:#444;font-weight:600;}
 .btnrow{display:grid;grid-template-columns:1fr 1fr 1fr 64px;gap:9px;}
-.btnrow button{border:0;border-radius:9px;color:#fff;font-size:14px;font-weight:700;padding:12px 0;cursor:pointer;}
+.btnrow button{border:0;border-radius:10px;color:#fff;font-size:15px;font-weight:700;padding:14px 0;cursor:pointer;}
 .btnrow button:active{opacity:.8;}
 .b-bai{background:var(--bai);}
 .b-ye{background:var(--ye);}
 .b-xiu{background:var(--xiu);}
 .b-del{background:#fff;color:#c0392b;border:1.5px solid #e6e6e6 !important;font-size:17px;}
-.more{margin-top:9px;}
-.more button{border:1.5px solid #e3e6e3;background:#fff;color:#8a94a3;border-radius:8px;padding:8px 20px;font-size:13px;cursor:pointer;}
-.selcount{font-size:12px;color:#888;}
-/* ===== 弹层 ===== */
-.mask{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:90;display:none;align-items:flex-end;}
-.mask.on{display:flex;}
-.sheet{background:#fff;width:100%;max-width:520px;margin:0 auto;border-radius:16px 16px 0 0;padding:18px 16px calc(20px + env(safe-area-inset-bottom));}
-.sheet h3{margin:0 0 14px;font-size:16px;}
-.crow{display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:14px;}
-.crow label{width:96px;color:#555;}
-.crow input,.crow select{flex:1;border:1px solid var(--line,#e3e8ef);border-radius:8px;padding:10px;font-size:14px;background:#fafbfc;}
-.srow{display:flex;gap:8px;}
-.srow button{flex:1;border:1.5px solid #dfe3df;background:#fff;border-radius:8px;padding:10px 0;font-size:14px;cursor:pointer;color:#444;}
-.srow button.on{border-color:var(--g1);background:#eefaf2;color:var(--g2);font-weight:700;}
-.sheet .go{width:100%;border:0;border-radius:10px;background:var(--g1);color:#fff;font-size:15px;font-weight:700;padding:13px 0;margin-top:8px;cursor:pointer;}
-.sheet .cancel{width:100%;border:0;background:transparent;color:#999;font-size:13px;padding:10px 0;cursor:pointer;}
-.toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.85);color:#fff;padding:13px 22px;border-radius:10px;font-size:14px;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;max-width:80%;text-align:center;line-height:1.6;}
+.toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.85);color:#fff;padding:13px 22px;border-radius:10px;font-size:14px;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;max-width:82%;text-align:center;line-height:1.6;white-space:pre-wrap;}
 .toast.on{opacity:1;}
 </style>
 </head>
@@ -78,7 +66,7 @@ body{margin:0;background:var(--bg);font-family:-apple-system,"PingFang SC","Micr
 
 <div class="hero">
   <div class="row1">
-    <span class="back" id="btnBack">‹ 排班</span>
+    <a class="backbtn" href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>返回日志</a>
     <div class="ym"><div class="year" id="yTitle">2026</div><div class="month" id="mTitle">十月</div></div>
     <span style="opacity:0">占位</span>
   </div>
@@ -95,15 +83,14 @@ body{margin:0;background:var(--bg);font-family:-apple-system,"PingFang SC","Micr
     <span><i style="background:var(--bai)"></i>白班</span>
     <span><i style="background:var(--ye)"></i>夜班</span>
     <span><i style="background:var(--xiu)"></i>休息</span>
-    <span style="cursor:pointer;color:var(--blue)" id="btnToday">回到今天</span>
+    <span style="cursor:pointer;color:#1a5fb4;font-weight:600" id="btnToday">今天</span>
   </div>
 </div>
 
 <div class="panel">
   <div class="prow">
-    <span class="cyclechip" id="btnCycle">🔄 周期轮班</span>
     <span class="selcount" id="selCount">未选择日期</span>
-    <span class="fold" id="btnFold">收起 ⌄</span>
+    <span class="cyclechip" id="btnCycle">🔄 周期轮班</span>
   </div>
   <div class="btnrow">
     <button class="b-bai" data-set="白">白班</button>
@@ -111,127 +98,41 @@ body{margin:0;background:var(--bg);font-family:-apple-system,"PingFang SC","Micr
     <button class="b-xiu" data-set="休">休息</button>
     <button class="b-del" id="btnDel">🗑</button>
   </div>
-  <div class="more" id="moreRow"><button id="btnMore">更多</button></div>
-</div>
-
-<!-- 周期轮班弹层 -->
-<div class="mask" id="mask">
-  <div class="sheet">
-    <h3>周期轮班</h3>
-    <div class="crow"><label>轮班顺序</label>
-      <select id="cycOrder">
-        <option value="白夜休">白班 → 夜班 → 休息</option>
-        <option value="白休">白班 → 休息</option>
-        <option value="夜白休">夜班 → 白班 → 休息</option>
-      </select>
-    </div>
-    <div class="crow"><label>各班天数</label>
-      <div class="srow" style="flex:1" id="cycDays"></div>
-    </div>
-    <div class="crow"><label>开始日期</label><input type="date" id="cycStart"></div>
-    <div class="crow"><label>应用到</label>
-      <select id="cycRange">
-        <option value="month">当前显示的月份</option>
-        <option value="m3">往后 3 个月</option>
-        <option value="m6">往后 6 个月</option>
-      </select>
-    </div>
-    <button class="go" id="cycGo">生成排班</button>
-    <button class="cancel" id="cycCancel">取消</button>
-  </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
 /* ==================== 农历算法（1900-2100 压缩表） ==================== */
-const LUNAR_INFO=[0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,
-0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,
-0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970,
-0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950,
-0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557,
-0x06ca0,0x0b550,0x15355,0x04da0,0x0a5b0,0x14573,0x052b0,0x0a9a8,0x0e950,0x06aa0,
-0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0,
-0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b6a0,0x195a6,
-0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570,
-0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x05ac0,0x0ab60,0x096d5,0x092e0,
-0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5,
-0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930,
-0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530,
-0x05aa0,0x076a3,0x096d0,0x04afb,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45,
-0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0,
-0x14b63,0x09370,0x049f8,0x04970,0x064b0,0x168a6,0x0ea50,0x06b20,0x1a6c4,0x0aae0,
-0x0a2e0,0x0d2e3,0x0c960,0x0d557,0x0d4a0,0x0da50,0x05d55,0x056a0,0x0a6d0,0x055d4,
-0x052d0,0x0a9b8,0x0a950,0x0b4a0,0x0b6a6,0x0ad50,0x055a0,0x0aba4,0x0a5b0,0x052b0,
-0x0b273,0x06930,0x07337,0x06aa0,0x0ad50,0x14b55,0x04b60,0x0a570,0x054e4,0x0d160,
-0x0e968,0x0d520,0x0daa0,0x16aa6,0x056d0,0x04ae0,0x0a9d4,0x0a2d0,0x0d150,0x0f252,
-0x0d520];
+const LUNAR_INFO=[0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970,0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950,0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557,0x06ca0,0x0b550,0x15355,0x04da0,0x0a5b0,0x14573,0x052b0,0x0a9a8,0x0e950,0x06aa0,0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0,0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b6a0,0x195a6,0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570,0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x05ac0,0x0ab60,0x096d5,0x092e0,0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5,0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930,0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530,0x05aa0,0x076a3,0x096d0,0x04afb,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45,0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0,0x14b63,0x09370,0x049f8,0x04970,0x064b0,0x168a6,0x0ea50,0x06b20,0x1a6c4,0x0aae0,0x0a2e0,0x0d2e3,0x0c960,0x0d557,0x0d4a0,0x0da50,0x05d55,0x056a0,0x0a6d0,0x055d4,0x052d0,0x0a9b8,0x0a950,0x0b4a0,0x0b6a6,0x0ad50,0x055a0,0x0aba4,0x0a5b0,0x052b0,0x0b273,0x06930,0x07337,0x06aa0,0x0ad50,0x14b55,0x04b60,0x0a570,0x054e4,0x0d160,0x0e968,0x0d520,0x0daa0,0x16aa6,0x056d0,0x04ae0,0x0a9d4,0x0a2d0,0x0d150,0x0f252,0x0d520];
 const LUNAR_MONTH=['正','二','三','四','五','六','七','八','九','十','冬','腊'];
 const LUNAR_DAY=['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十','十一','十二','十三','十四','十五','十六','十七','十八','十九','二十','廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
 const FEST_SOLAR={'1-1':'元旦','5-1':'劳动','10-1':'国庆','10-2':'国庆','10-3':'国庆'};
 const TERM={};
-(function(){ // 简易节气表（只标常见的用于展示，不精确到分钟）
+(function(){
   const names=['小寒','大寒','立春','雨水','惊蛰','春分','清明','谷雨','立夏','小满','芒种','夏至','小暑','大暑','立秋','处暑','白露','秋分','寒露','霜降','立冬','小雪','大雪','冬至'];
   const base={1:[5,20],2:[4,19],3:[6,21],4:[5,20],5:[5,21],6:[6,21],7:[7,23],8:[8,23],9:[8,23],10:[8,24],11:[7,22],12:[7,22]};
   for(const m in base){ base[m].forEach((d,i)=>TERM[m+'-'+d]=names[(+m-1)*2+i]); }
 })();
-function lunarInfo(y,m){ // m:1-12
-  const idx=y-1900;
-  let sum=0;
-  for(let i=0;i<idx;i++){ sum+=lYearDays(1900+i); }
-  for(let i=1;i<m;i++){ sum+=lMonthDays(y,i); }
-  return sum;
-}
-function lMonthDays(y,m){
-  const v=LUNAR_INFO[y-1900];
-  return (v & (0x10000>>m))?30:29;
-}
-function lYearDays(y){
-  let sum=348;
-  const v=LUNAR_INFO[y-1900];
-  for(let i=0x8000;i>0x8;i>>=1){ sum+=(v&i)?1:0; }
-  return sum+lLeapDays(y);
-}
-function lLeapDays(y){
-  const v=LUNAR_INFO[y-1900];
-  if(lLeapMonth(y)){ return (v&0x10000)?30:29; }
-  return 0;
-}
+function lMonthDays(y,m){ const v=LUNAR_INFO[y-1900]; return (v & (0x10000>>m))?30:29; }
 function lLeapMonth(y){ return LUNAR_INFO[y-1900]&0xf; }
+function lLeapDays(y){ const v=LUNAR_INFO[y-1900]; return lLeapMonth(y)?((v&0x10000)?30:29):0; }
+function lYearDays(y){ let s=348; const v=LUNAR_INFO[y-1900]; for(let i=0x8000;i>0x8;i>>=1)s+=(v&i)?1:0; return s+lLeapDays(y); }
 function solarToLunar(date){
   let y=date.getFullYear(), m=date.getMonth()+1, d=date.getDate();
-  let offset=Math.floor((date - new Date(y,0,1))/86400000)+1;
-  let leap=0, lm=1, isLeap=false;
-  const lmDaysOf=(yy,mm,leapM)=>{
-    if(leapM===mm) return lLeapDays(yy);
-    return lMonthDays(yy,mm);
-  };
-  for(let i=1;i<13 && offset>0;i++){
-    const leapM=lLeapMonth(y);
-    let days;
-    if(leapM>0 && !isLeap && i===leapM){ isLeap=true; days=lLeapDays(y); lm=i; leap=1; }
-    else { lm=i; days=lMonthDays(y,i); if(isLeap){ /* 已过闰月 */ } }
-    if(leapM>0 && i>leapM && !isLeap){ /* 不可能 */ }
-    if(offset-days>0){ offset-=days; if(isLeap) isLeap=false; }
-    else break;
-  }
-  // 上面的循环在闰月处理上过于复杂，改用标准写法：
-  let yy=date.getFullYear();
-  offset=Math.floor((date - new Date(yy,0,1))/86400000)+1;
-  let months=[];
-  let cm=1, cleap=lLeapMonth(yy), cIsLeap=false;
+  let offset=Math.floor((date-new Date(y,0,1))/86400000)+1;
+  const leapM=lLeapMonth(y);
+  let cm=1, isLeap=false, lunarMonth=1, lunarLeap=false;
   while(offset>0){
     let days;
-    if(cleap===cm && !cIsLeap){ cIsLeap=true; days=lLeapDays(yy); months.push({m:cm,leap:true,d:days}); }
-    else { days=lMonthDays(yy,cm); months.push({m:cm,leap:cIsLeap,d:days}); }
-    if(offset-days>0){ offset-=days; if(cIsLeap){ cIsLeap=false; cm++; } }
+    if(leapM===cm && !isLeap){ isLeap=true; days=lLeapDays(y); lunarLeap=true; }
+    else { days=lMonthDays(y,cm); lunarMonth=cm; lunarLeap=isLeap; }
+    if(offset-days>0){ offset-=days; if(isLeap){ isLeap=false; cm++; } }
     else break;
   }
-  const last=months[months.length-1];
-  let name=(last.leap?'闰':'')+LUNAR_MONTH[last.m-1]+'月';
-  if(offset===1 && !last.leap) name=LUNAR_MONTH[last.m-1]+'月'; // 初一显示月名
-  else name=LUNAR_DAY[offset-1]===undefined?name:LUNAR_DAY[offset-1];
-  if(offset===1) name=(last.leap?'闰':'')+LUNAR_MONTH[last.m-1]+'月';
+  let name;
+  if(offset===1) name=(lunarLeap?'闰':'')+LUNAR_MONTH[lunarMonth-1]+'月';
+  else name=LUNAR_DAY[offset-1]||LUNAR_DAY[0];
   return {text:name, festival:FEST_SOLAR[m+'-'+d]||TERM[m+'-'+d]||''};
 }
 
@@ -239,7 +140,7 @@ function solarToLunar(date){
 const $=s=>document.querySelector(s);
 let memFB={};
 const LS_OK=(function(){try{localStorage.setItem('__t','1');localStorage.removeItem('__t');return true;}catch(e){return false;}})();
-function getShifts(ym){ // ym: '2026-10'
+function getShifts(ym){
   if(!LS_OK) return memFB[ym]||{};
   try{ return JSON.parse(localStorage.getItem('dr_shift_'+ym)||'{}'); }catch(e){ return {}; }
 }
@@ -248,148 +149,166 @@ function setShifts(ym,obj){
   if(!LS_OK){ toast('浏览器禁止本地存储，无法保存'); return; }
   try{ localStorage.setItem('dr_shift_'+ym,JSON.stringify(obj)); }catch(e){ toast('保存失败：存储已满'); }
 }
+function lsKeys(prefix){ const out=[]; try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.startsWith(prefix))out.push(k); } }catch(e){} return out; }
 function toast(msg,ms){
   const t=$('#toast');t.textContent=msg;t.classList.add('on');
   clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('on'),ms||1800);
 }
 
-/* ==================== 日历渲染 ==================== */
+/* ==================== 周期轮班逻辑 ==================== */
+const SEQ=['白','夜','休'];                 // 白班 → 夜班 → 休息 循环
+const SHIFT_NAME={'白':'白班','夜':'夜班','休':'休息'};
+const ANCHOR_KEY='dr_shift_anchor';
+const END_DATE=new Date(2027,4,1);          // 明年 5 月 1 日
+
 const CN_MONTH=['一','二','三','四','五','六','七','八','九','十','十一','十二'];
 const TODAY=new Date();TODAY.setHours(0,0,0,0);
 let view=new Date(TODAY.getFullYear(),TODAY.getMonth(),1);
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const sameDay=(a,b)=>a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
-let sel=new Set();
+
+function getAnchor(){
+  let a=null;
+  try{ a=JSON.parse(localStorage.getItem(ANCHOR_KEY)); }catch(e){}
+  if(a && a.date) return a;
+  a={date:iso(TODAY), shift:'夜'};          // 今天 = 夜班
+  try{ localStorage.setItem(ANCHOR_KEY, JSON.stringify(a)); }catch(e){}
+  return a;
+}
+function shiftByCycle(d){
+  const anchor=getAnchor();
+  const base=new Date(anchor.date+'T00:00:00');
+  const days=Math.round((d-base)/86400000);
+  const idx=((days+1)%3+3)%3;               // 锚点=夜(index 1)
+  return SEQ[idx];
+}
+/* 自动填充：仅在首次初始化（尚无锚点）时，把锚点所在月 1 日起到明年 5 月 1 日按周期填满。
+   之后加载不再重复填充，以保留用户手动删除/修改的班次。 */
+function autoFill(){
+  let hasAnchor=false;
+  try{ hasAnchor=!!localStorage.getItem(ANCHOR_KEY); }catch(e){}
+  if(hasAnchor) return 0;
+  const anchor=getAnchor();
+  const anchorDate=new Date(anchor.date+'T00:00:00');
+  const start=new Date(anchorDate.getFullYear(), anchorDate.getMonth(), 1);
+  let changed=0;
+  for(let d=new Date(start); d<=END_DATE; d.setDate(d.getDate()+1)){
+    const ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    const o=getShifts(ym);
+    const dd=String(d.getDate());
+    if(!o[dd]){ o[dd]=shiftByCycle(d); setShifts(ym,o); changed++; }
+  }
+  return changed;
+}
+
+/* ==================== 日历渲染（单选） ==================== */
+let selDate=null;   // 当前选中的日期（Date）
 
 function render(){
-  const y=view.getFullYear(),m=view.getMonth(); // 0-based
+  const y=view.getFullYear(),m=view.getMonth();
   $('#yTitle').textContent=y;
   $('#mTitle').textContent=CN_MONTH[m]+'月';
   const first=new Date(y,m,1);
-  const startCol=first.getDay(); // 0=日
+  const startCol=first.getDay();
   const daysInMonth=new Date(y,m+1,0).getDate();
   const daysPrev=new Date(y,m,0).getDate();
   const shifts=getShifts(y+'-'+String(m+1).padStart(2,'0'));
   const grid=$('#grid');grid.innerHTML='';
 
-  const mkCell=(d,other,dd)=>{
-    const date=new Date(y,m+(other?dd:0),d);
+  const mkCell=(d,other,off)=>{
+    const date=new Date(y,m+off,d);
     const lu=solarToLunar(date);
     const isToday=sameDay(date,TODAY);
+    const isSel=selDate&&sameDay(date,selDate);
     const wk=date.getDay();
     const el=document.createElement('div');
-    el.className='cell'+(other?' other':'')+(isToday?' today':'')+(sel.has(iso(date))?' sel':'');
+    el.className='cell'+(other?' other':'')+(isToday?' today':'')+(isSel?' sel':'');
     const showFest=lu.festival||lu.text;
-    const festCls=/^[a-zA-Z\u4e00-\u9fa5]{2,4}$/.test(showFest)&&lu.festival?'fest':'';
+    const festCls=lu.festival?'fest':'';
     const tag=shifts[String(d)];
-    const tagHtml=tag?`<span class="tag ${tag==='白'?'bai':tag==='夜'?'ye':'xiu'}">${tag==='白'?'白班':tag==='夜'?'夜班':'休息'}</span>`:'';
+    const tagHtml=tag?`<span class="tag ${tag==='白'?'bai':tag==='夜'?'ye':'xiu'}">${SHIFT_NAME[tag]}</span>`:'';
     el.innerHTML=`<div class="dnum${(wk===0||wk===6)&&!isToday?' weekend':''}">${String(d).padStart(2,'0')}</div>
       <div class="lunar ${festCls}">${showFest}</div>${tagHtml}`;
     if(!other){
       el.onclick=()=>{
-        const k=iso(date);
-        if(sel.has(k))sel.delete(k);else sel.add(k);
-        el.classList.toggle('sel');
+        if(isSel){ selDate=null; }
+        else { selDate=new Date(y,m,d); }
+        render();
         updateSelCount();
       };
     }
     grid.appendChild(el);
   };
 
-  // 上月补位
   for(let i=startCol-1;i>=0;i--) mkCell(daysPrev-i,true,-1);
   for(let d=1;d<=daysInMonth;d++) mkCell(d,false,0);
-  // 下月补齐
   const total=startCol+daysInMonth;
   const rest=(7-total%7)%7;
   for(let d=1;d<=rest;d++) mkCell(d,true,1);
   updateSelCount();
 }
 function updateSelCount(){
-  const n=sel.size;
-  $('#selCount').textContent=n?('已选 '+n+' 天'):'未选择日期';
+  $('#selCount').textContent=selDate?(iso(selDate)+' 已选中'):'未选择日期';
 }
 
-$('#prevM').onclick=()=>{view=new Date(view.getFullYear(),view.getMonth()-1,1);sel.clear();render();};
-$('#nextM').onclick=()=>{view=new Date(view.getFullYear(),view.getMonth()+1,1);sel.clear();render();};
-$('#btnBack').onclick=()=>{ if(document.referrer&&document.referrer.includes('index'))history.back(); else location.href='index.html'; };
-$('#btnToday').onclick=()=>{view=new Date(TODAY.getFullYear(),TODAY.getMonth(),1);sel.clear();render();};
-$('#btnFold').onclick=()=>{ document.querySelectorAll('.btnrow,.more').forEach(e=>{const v=e.style.display!=='none';e.style.display=v?'none':'grid';if(e.id==='moreRow')e.style.display=v?'none':'block';}); $('#btnFold').textContent=document.querySelector('.btnrow').style.display==='none'?'展开 ⌃':'收起 ⌄'; };
+/* 选中日期后自动跳到下一天（跨月则切换视图） */
+function advanceSel(){
+  if(!selDate)return;
+  selDate.setDate(selDate.getDate()+1);
+  if(selDate.getMonth()!==view.getMonth()||selDate.getFullYear()!==view.getFullYear()){
+    view=new Date(selDate.getFullYear(),selDate.getMonth(),1);
+  }
+}
 
-/* 批量设置 */
+$('#prevM').onclick=()=>{view=new Date(view.getFullYear(),view.getMonth()-1,1);render();};
+$('#nextM').onclick=()=>{view=new Date(view.getFullYear(),view.getMonth()+1,1);render();};
+$('#btnToday').onclick=()=>{view=new Date(TODAY.getFullYear(),TODAY.getMonth(),1);selDate=new Date(TODAY);render();};
+
+/* ==================== 设置班次（点日期 → 点班次 → 自动跳下一天） ==================== */
 document.querySelectorAll('.btnrow [data-set]').forEach(b=>{
   b.onclick=()=>{
-    if(!sel.size){toast('请先点选日期');return;}
+    if(!selDate){ toast('请先点选一个日期'); return; }
     const v=b.dataset.set;
-    let changed=0;
-    sel.forEach(k=>{
-      const [y,m]=k.split('-');
-      const sk=y+'-'+m;
-      const o=getShifts(sk);
-      const d=String(+k.split('-')[2]);
-      o[d]=v;setShifts(sk,o);changed++;
-    });
-    toast('✓ 已设置 '+changed+' 天为「'+(v==='白'?'白班':v==='夜'?'夜班':'休息')+'」');
-    sel.clear();render();
+    const ym=selDate.getFullYear()+'-'+String(selDate.getMonth()+1).padStart(2,'0');
+    const o=getShifts(ym);
+    o[String(selDate.getDate())]=v;
+    setShifts(ym,o);
+    toast('✓ '+iso(selDate)+' 设为「'+SHIFT_NAME[v]+'」');
+    advanceSel();
+    render();
   };
 });
 $('#btnDel').onclick=()=>{
-  if(!sel.size){toast('请先点选日期');return;}
-  sel.forEach(k=>{
-    const [y,m]=k.split('-');
-    const o=getShifts(y+'-'+m);
-    delete o[String(+k.split('-')[2])];
-    setShifts(y+'-'+m,o);
-  });
-  toast('已清除所选班次');
-  sel.clear();render();
+  if(!selDate){ toast('请先点选一个日期'); return; }
+  const ym=selDate.getFullYear()+'-'+String(selDate.getMonth()+1).padStart(2,'0');
+  const o=getShifts(ym);
+  delete o[String(selDate.getDate())];
+  setShifts(ym,o);
+  toast('已清除 '+iso(selDate)+' 的班次');
+  advanceSel();
+  render();
 };
-$('#btnMore').onclick=()=>toast('更多功能开发中',1500);
 
-/* 周期轮班 */
-(function cycleUI(){
-  const mask=$('#mask'),daysBox=$('#cycDays');
-  function buildDays(){
-    const order=$('#cycOrder').value;
-    const kinds=order.split('');
-    daysBox.innerHTML=kinds.map((k,i)=>`<input inputmode="numeric" data-k="${k}" value="1" style="text-align:center" title="${k}">`).join('');
+/* ==================== 周期轮班（一键按规则重新生成到今天→明年5月1日） ==================== */
+$('#btnCycle').onclick=()=>{
+  if(!confirm('将按「白班 → 夜班 → 休息」循环，以今天('+iso(TODAY)+')为夜班，重新生成到 2027年5月1日 的排班（覆盖已有班次）。\n\n确定重新生成吗？'))return;
+  const anchor={date:iso(TODAY), shift:'夜'};
+  try{ localStorage.setItem(ANCHOR_KEY, JSON.stringify(anchor)); }catch(e){}
+  const start=new Date(anchor.date+'T00:00:00');
+  let n=0;
+  for(let d=new Date(start); d<=END_DATE; d.setDate(d.getDate()+1)){
+    const ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    const o=getShifts(ym);
+    o[String(d.getDate())]=shiftByCycle(d);
+    setShifts(ym,o);
+    n++;
   }
-  $('#cycOrder').onchange=buildDays;
-  buildDays();
-  $('#btnCycle').onclick=()=>{
-    $('#cycStart').value=iso(TODAY);
-    mask.classList.add('on');
-  };
-  $('#cycCancel').onclick=()=>mask.classList.remove('on');
-  mask.onclick=e=>{if(e.target===mask)mask.classList.remove('on');};
-  $('#cycGo').onclick=()=>{
-    const order=$('#cycOrder').value.split('');
-    const dayInputs=[...daysBox.querySelectorAll('input')].map(i=>Math.max(1,parseInt(i.value)||1));
-    const start=new Date($('#cycStart').value+'T00:00:00');
-    if(isNaN(start)){toast('请选择开始日期');return;}
-    const range=$('#cycRange').value;
-    const end=new Date(view.getFullYear(),view.getMonth()+(range==='m3'?3:range==='m6'?6:1),1);
-    // 构建周期序列
-    const seq=[];
-    order.forEach((k,i)=>{for(let n=0;n<dayInputs[i];n++)seq.push(k);});
-    let changed=0;
-    for(let d=new Date(start);d<end;d.setDate(d.getDate()+1)){
-      const idx=Math.floor((d-start)/86400000)%seq.length;
-      const ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
-      const o=getShifts(ym);
-      o[String(d.getDate())]=seq[idx];
-      setShifts(ym,o);
-      changed++;
-    }
-    mask.classList.remove('on');
-    toast('✓ 已按周期生成 '+changed+' 天排班');
-    sel.clear();render();
-  };
-})();
+  toast('✓ 已生成 '+n+' 天排班（到今天 → 2027-05-01）');
+  render();
+};
 
-/* 月视图标题回今天 */
-$('#btnBack').addEventListener('click',()=>{});
-
+/* ==================== 启动 ==================== */
+autoFill();
 render();
 </script>
 </body>

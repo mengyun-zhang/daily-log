@@ -161,7 +161,7 @@ h1{font-size:18px;margin:0 0 8px;line-height:1.4;color:#111;}
     <a class="ditem on" data-pane="log">
       <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>日志
     </a>
-    <a class="ditem" data-pane="history">
+    <a class="ditem" data-href="history.html">
       <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>历史
     </a>
     <a class="ditem" data-href="class.html">
@@ -264,7 +264,7 @@ h1{font-size:18px;margin:0 0 8px;line-height:1.4;color:#111;}
       </div>
       <div class="tipbox">
         <b>智谱（推荐，永久免费不限次）：</b>打开 open.bigmodel.cn → 注册 → 控制台 → API Keys → 创建，复制形如 <span style="font-family:monospace">xxxx.xxxx</span> 的字符串。<br>
-        <b>硅基流动：</b>cloud.siliconflow.cn 注册送 14 元额度，模型填 Qwen/Qwen2.5-VL-32B-Instruct。<br>
+        <b>硅基流动：</b>cloud.siliconflow.cn 注册送 14 元额度，模型填 Qwen/Qwen3-VL-32B-Instruct。<br>
         Key 只保存在这台手机的浏览器里，不会上传到任何服务器。
       </div>
     </div>
@@ -652,10 +652,32 @@ function renderAll(){
   collect();
 }
 
+/* ============ 历史同步（生成日报时写入，同日期同班次覆盖） ============ */
+function saveHistory(){
+  const d=iso(cur);
+  const hist=STORE.get('dr_hist_'+d, {}) || {};
+  const people=CREW.filter((_,i)=>sel[i]);
+  const rows=[];
+  let total=0,cntOut=0;
+  FURNACES.forEach(no=>{
+    const r=fdata[no];if(!r)return;
+    if(r.output!==null){total+=r.output;cntOut++;}
+    rows.push({no:+no,output:r.output,airflow:r.airflow,density:r.density,surface:r.surface});
+  });
+  hist[shift]={
+    date:d, shift, team:readCfg().team||'',
+    people, crew:CREW.slice(), sel:sel.slice(),
+    rows, total:+fmt(total), avg:cntOut?+fmt(total/cntOut,1):0, act:Object.keys(fdata).length,
+    savedAt:new Date().toISOString()
+  };
+  STORE.set('dr_hist_'+d, hist);
+}
+
 /* ============ 预览与复制 ============ */
 $('#btnPreview').onclick=()=>{
   const act=Object.keys(fdata).length;
   if(!act){alert('请先填写至少一个炉台的运行数据');return;}
+  saveHistory();   // 同步到历史页
   const people=CREW.filter((_,i)=>sel[i]);
   const d=cur;
   $('#pvTitle').textContent=`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（周${WD[d.getDay()]}）${shift}生产日志`;
@@ -705,7 +727,7 @@ $('#btnClear').onclick=()=>{
 const OCR_PROMPT=`你是精确的表格识别引擎。图片是一张中文"取样记录表"，列含：炉号/名称/批次/取样时间/计划比表m²/g/实测混样比表m²/g/设定炉温℃。
 任务：逐行如实转录，只输出紧凑单行 JSON，无空格无换行无 markdown。
 格式：{"rows":[{"no":8,"time":"0:00","surface":4.1}]}
-规则：1.每个对象只保留 no(炉号数字)/time(取样时间)/surface(实测混样比表数值) 三个字段。2.保持原行顺序与行数，合并单元格续行炉号沿用上一行。3.实测混样比表为空则 surface 填 null。4.只转录"实测混样比表"列，不要抄成"计划比表"（计划通常是 3-4.5 或 23-29 这种区间格式）。5.数字保留原样不四舍五入。6.模糊无法确定填 null，不要猜。`;
+规则：1.每个对象只保留 no(炉号数字)/time(取样时间)/surface(实测混样比表数值) 三个字段。2.保持原行顺序与行数，一行不漏，合并单元格续行炉号沿用上一行；即使某行实测混样比表为空，也必须输出该行对象(surface 填 null)，严禁省略空行。3.实测混样比表为空则 surface 填 null。4.只转录"实测混样比表"列，不要抄成"计划比表"（计划通常是 3-4.5 或 23-29 这种区间格式）。5.数字保留原样不四舍五入。6.模糊无法确定填 null，不要猜。`;
 
 /* ================= 统一存储层（带容错与备份） ================= */
 const STORE = {
@@ -751,7 +773,7 @@ const STORE = {
 /* ---------- 全局配置（默认值） ---------- */
 const PROVIDERS = {
   zhipu:   { name:'智谱 GLM-4V-Flash', base:'https://open.bigmodel.cn/api/paas/v4/chat/completions', model:'glm-4v-flash' },
-  silicon: { name:'硅基流动', base:'https://api.siliconflow.cn/v1/chat/completions', model:'Qwen/Qwen2.5-VL-32B-Instruct' },
+  silicon: { name:'硅基流动', base:'https://api.siliconflow.cn/v1/chat/completions', model:'Qwen/Qwen3-VL-32B-Instruct' },
   custom:  { name:'自定义', base:'', model:'' }
 };
 const DEFAULT_CFG = {
@@ -765,14 +787,16 @@ const DEFAULT_CFG = {
   furnaces: [1,2,3,4,5,7,8,10,11,12]
 };
 let CFG = Object.assign({}, DEFAULT_CFG, STORE.get(STORE.CFG, {}));
-// 兼容：把老版本的 rep_cfg_kKey 迁移过来
+// 兼容：把老版本的 rep_cfg_kKey 迁移过来；过期模型名自动升级
 (function migrateOld(){
-  if (CFG.key) return;
-  const oldKey = localStorage.getItem('rep_cfg_kKey');
-  if (oldKey) {
-    CFG.key = oldKey.trim();
-    STORE.set(STORE.CFG, CFG);
+  let dirty=false;
+  if (!CFG.key) {
+    const oldKey = localStorage.getItem('rep_cfg_kKey');
+    if (oldKey) { CFG.key = oldKey.trim(); dirty=true; }
   }
+  if (CFG.model === 'Qwen/Qwen2.5-VL-32B-Instruct') { CFG.model = 'Qwen/Qwen3-VL-32B-Instruct'; dirty=true; }
+  if (CFG.base === 'https://api.siliconflow.cn/v1/chat/completions' && !CFG.model) { CFG.model = PROVIDERS.silicon.model; dirty=true; }
+  if (dirty) STORE.set(STORE.CFG, CFG);
 })();
 function saveCfg(){ STORE.set(STORE.CFG, CFG); }
 function readCfg(){ CFG = Object.assign({}, DEFAULT_CFG, STORE.get(STORE.CFG, {})); return CFG; }
@@ -917,36 +941,59 @@ function parsePasteText(txt){
   }
   return rows;
 }
+// 解析比表数值：容错处理「3.1 」「3.10」「3.1m²/g」「—」等
+function parseSurfaceVal(raw){
+  if(raw===null||raw===undefined||raw===''||raw==='-')return null;
+  const v=parseFloat(String(raw).replace(/[^\d.]/g,''));
+  return isNaN(v)?null:v;
+}
 function latestByFurnace(rows){
-  const map=new Map();let lastNo=null,lastT='';
-  const norm=arr=>{const out=[];for(const r of arr){
-    let no=parseInt(r.no??r['炉号']);if(!no)no=lastNo;if(!no)continue;lastNo=no;
-    const tm=String(r.time??r['取样时间']??'').trim();if(tm)lastT=tm;
-    const sf=r.surface??r['实测混样比表'];
-    const v=(sf===null||sf===undefined||sf===''||sf==='-')?null:parseFloat(String(sf).replace(/[^\d.]/g,''));
-    out.push({no,time:tm||lastT,surface:isNaN(v)?null:v,order:out.length});}return out;};
-  for(const r of norm(rows)){
-    const c=map.get(r.no);
-    if(!c){map.set(r.no,r);continue;}
-    const a=t2m(r.time),b=t2m(c.time);
-    if(a>b||(a===b&&r.order>c.order))map.set(r.no,r);
+  // 1. 规范化：合并单元格续行炉号沿用上一行；时间沿用上一行
+  const seq=[];let lastNo=null,lastT='';
+  for(const r of (rows||[])){
+    let no=parseInt(r.no ?? r['炉号']);
+    if(!no) no=lastNo;
+    if(!no) continue;               // 首行之前无炉号，跳过
+    lastNo=no;
+    const tm=String(r.time ?? r['取样时间'] ?? '').trim();
+    if(tm) lastT=tm;
+    seq.push({no, time:tm||lastT, surface:parseSurfaceVal(r.surface ?? r['实测混样比表'])});
   }
-  return [...map.values()].sort((a,b)=>a.no-b.no);
+  // 2. 按炉号分组（保持原行序）
+  const byNo=new Map();
+  for(const r of seq){
+    if(!byNo.has(r.no)) byNo.set(r.no,[]);
+    byNo.get(r.no).push(r);
+  }
+  // 3. 每个炉号：从「最后一条」往前倒推，取第一个非空比表；都没有则为空
+  const result=[];
+  for(const [no,list] of byNo){
+    let pick=null,back=0;
+    for(let i=list.length-1;i>=0;i--){
+      back++;
+      if(list[i].surface!==null){ pick=list[i]; break; }
+    }
+    result.push(pick || {no, time:(list[list.length-1]&&list[list.length-1].time)||'', surface:null});
+    result[result.length-1]._back = pick ? back : 0;
+    result[result.length-1]._total = list.length;
+  }
+  return result.sort((a,b)=>a.no-b.no);
 }
 
 async function applyResult(rawRows,srcName){
-  const latest=latestByFurnace(rawRows).filter(r=>r.surface!==null);
-  if(!latest.length){showOcr((srcName||'识别')+'完成，但没有提取到任何实测比表数值。请检查图片是否清晰，或改用 AI 识别重试。',true);return;}
+  const latest=latestByFurnace(rawRows);
+  const filledRows=latest.filter(r=>r.surface!==null);
+  if(!filledRows.length){showOcr((srcName||'识别')+'完成，但没有提取到任何实测比表数值。请检查图片是否清晰，或改用 AI 识别重试。',true);return;}
   let filled=[],skipped=[],warns=[];
-  for(const r of latest){
+  for(const r of filledRows){
     const inp=tbody.querySelector(`input[data-no="${r.no}"][data-f="surface"]`);
     if(!inp){skipped.push(r.no+'#');continue;}
     inp.value=r.surface;
     inp.dispatchEvent(new Event('input'));
     if(r.surface>(readCfg().surfaceMax||10))warns.push(r.no+'#炉 比表 '+r.surface+' 超常规区间，已标红请复核');
-    filled.push(r.no+'#炉 → '+r.surface+(r.time?'（'+r.time+'）':''));
+    filled.push(r.no+'#炉 → '+r.surface+(r.time?'（'+r.time+'）':'')+(r._back>1?'　[倒推'+r._back+'条]':''));
   }
-  let msg=(srcName||'识别')+'完成：提取 '+latest.length+' 个炉号的最新比表，已按炉号顺序填入。\n';
+  let msg=(srcName||'识别')+'完成：每个炉号取「最后一条」最新比表，共 '+filledRows.length+' 个炉号，已按炉号顺序填入。\n';
   msg+=filled.join('\n');
   if(skipped.length)msg+='\n跳过（日报无此炉号）：'+skipped.join('、');
   if(warns.length)msg+='\n⚠ 待复核：'+warns.join('；');
@@ -1132,7 +1179,6 @@ document.addEventListener('keydown',function(e){
   rebuildFurnaceTable();
   sel = loadSel();
   renderCrew();
-  fillCfgForm();
   refreshKeyState();
   renderAll();
 })();
