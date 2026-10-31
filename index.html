@@ -924,7 +924,7 @@ async function callVision(b64){
       lastNetErr=e;                                             // 网络异常，试下一通道
     }
   }
-  throw new Error('网络请求失败（直连与中转通道均不通）：'+(lastNetErr?lastNetErr.message:''));
+  throw new Error('网络请求失败（直连与中转均不通）。若在微信内打开，请点右上角「…」用系统浏览器重试');
 }
 
 const t2m=t=>{const m=String(t||'').trim().match(/^(\d{1,2})[:：点](\d{2})?$/);return m?(+m[1])*60+(+m[2]||0):-1;};
