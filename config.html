@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="配置">
 <meta name="theme-color" content="#1a5fb4">
-<title>配置 · API Key</title>
+<title>配置中心</title>
 <style>
 :root{--blue:#1a5fb4;--bg:#f5f6f7;--line:#e3e8ef;--ok:#0a7a2f;--warn:#c0392b;}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -46,13 +46,24 @@ h1{font-size:20px;margin:0 0 4px;color:#111;}
 .toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.85);color:#fff;padding:14px 24px;border-radius:11px;font-size:14px;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;max-width:82%;text-align:center;line-height:1.7;white-space:pre-wrap;}
 .toast.on{opacity:1;}
 .backbtn{display:inline-flex;align-items:center;gap:5px;color:var(--blue);font-size:14px;text-decoration:none;margin-bottom:12px;font-weight:500;}
+.crew-item{display:flex;align-items:center;justify-content:space-between;padding:11px 2px;border-bottom:1px solid var(--line);}
+.crew-item:last-child{border-bottom:0;}
+.crew-name{font-size:15px;font-weight:500;}
+.crew-del{border:0;background:#fff0f0;color:#c0392b;border-radius:7px;padding:7px 13px;font-size:12px;font-weight:600;cursor:pointer;}
+.crew-del:active{background:#fbdcdc;}
+.crew-add{display:flex;gap:8px;margin-top:12px;}
+.crew-add input{flex:1;border:1px solid var(--line);border-radius:9px;padding:11px 12px;font-size:14px;background:#fafbfc;font-family:inherit;color:#222;}
+.crew-add input:focus{outline:0;border-color:var(--blue);background:#fff;box-shadow:0 0 0 3px rgba(26,95,180,.08);}
+.crew-add button{border:0;background:var(--blue);color:#fff;border-radius:9px;padding:11px 16px;font-size:14px;font-weight:600;cursor:pointer;flex-shrink:0;}
+.crew-count{font-size:12px;color:#9aa5b1;margin-top:10px;}
+.crew-empty{color:#9aa5b1;font-size:13px;text-align:center;padding:14px 0;}
 </style>
 </head>
 <body>
 <div class="wrap">
   <a class="backbtn" href="index.html">‹ 返回日志</a>
-  <h1>配置 API Key</h1>
-  <div class="sub">拍照识别取样表需要用到 AI 接口，填一次保存即可，之后自动读取</div>
+  <h1>配置中心</h1>
+  <div class="sub">识别接口与人员名单等基础设置，填一次保存即可，日志页自动读取</div>
 
   <div class="card">
     <div class="sec">识别接口</div>
@@ -117,6 +128,16 @@ h1{font-size:20px;margin:0 0 4px;color:#111;}
       </ol>
       </details>
     </div>
+  </div>
+
+  <div class="card">
+    <div class="sec">人员配置</div>
+    <div id="crewList"></div>
+    <div class="crew-add">
+      <input id="crewNew" placeholder="输入新成员姓名" autocomplete="off">
+      <button id="crewAddBtn">添加</button>
+    </div>
+    <div class="crew-count">当前共 <b id="crewCount">0</b> 人 · 日志页「当班人员」按钮会同步更新</div>
   </div>
 
   <div class="card">
@@ -335,9 +356,67 @@ $('#btnClear').onclick = () => {
   toast('已清除配置');
 };
 
+/* ===================== 人员配置 ===================== */
+const DEFAULT_CREW = ['亷丽霞','许来霞','刘晓燕','张春燕','刘淑会','岳静','许娜娜'];
+
+function currentCrew(){
+  const c = getCfg();
+  return (Array.isArray(c.crew) && c.crew.length) ? c.crew.slice() : DEFAULT_CREW.slice();
+}
+function saveCrew(list){
+  const cfg = Object.assign({}, getCfg(), { crew: list.slice() });
+  setCfg(cfg);
+}
+function renderCrew(){
+  const list = currentCrew();
+  const box = $('#crewList');
+  box.innerHTML = '';
+  if(!list.length){
+    box.innerHTML = '<div class="crew-empty">暂无人员，请在下方添加</div>';
+  }
+  list.forEach(name => {
+    const item = document.createElement('div');
+    item.className = 'crew-item';
+    const nm = document.createElement('span');
+    nm.className = 'crew-name';
+    nm.textContent = name;
+    const del = document.createElement('button');
+    del.className = 'crew-del';
+    del.textContent = '删除';
+    del.onclick = () => {
+      const l = currentCrew();
+      const idx = l.indexOf(name);
+      if(idx >= 0) l.splice(idx, 1);
+      saveCrew(l);
+      renderCrew();
+      toast('已删除「' + name + '」');
+    };
+    item.appendChild(nm);
+    item.appendChild(del);
+    box.appendChild(item);
+  });
+  $('#crewCount').textContent = list.length;
+}
+$('#crewAddBtn').onclick = () => {
+  const inp = $('#crewNew');
+  const name = inp.value.trim();
+  if(!name){ toast('请输入姓名'); return; }
+  const l = currentCrew();
+  if(l.indexOf(name) >= 0){ toast('「' + name + '」已存在'); return; }
+  l.push(name);
+  saveCrew(l);
+  renderCrew();
+  inp.value = '';
+  toast('已添加「' + name + '」');
+};
+$('#crewNew').addEventListener('keydown', e => {
+  if(e.key === 'Enter'){ e.preventDefault(); $('#crewAddBtn').click(); }
+});
+
 /* 启动 */
 applyProvider('silicon', false);
 loadForm();
+renderCrew();
 
 /* 环境检测：file:// 或受限环境提示 */
 (function envCheck(){
