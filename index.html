@@ -729,8 +729,7 @@ const OCR_PROMPT=`你是精确的表格识别引擎。图片是一张中文"取�
 格式：{"rows":[{"no":8,"time":"0:00","surface":4.1}]}
 规则：1.每个对象只保留 no(炉号数字)/time(取样时间)/surface(实测混样比表数值) 三个字段。2.保持原行顺序与行数，一行不漏，合并单元格续行炉号沿用上一行；即使某行实测混样比表为空，也必须输出该行对象(surface 填 null)，严禁省略空行。3.实测混样比表为空则 surface 填 null。4.只转录"实测混样比表"列，不要抄成"计划比表"（计划通常是 3-4.5 或 23-29 这种区间格式）。5.数字保留原样不四舍五入。6.模糊无法确定填 null，不要猜。`;
 
-const OCR_MD_PROMPT=`<image>
-<|grounding|>把图片中的表格完整转成 markdown 表格：保留表头、所有行与列，一字不落。合并单元格的续行，炉号那一格留空。不要省略、不要解释、不要添加其他文字，只输出 markdown 表格。`;
+const OCR_MD_PROMPT=`Extract all tables from the image and convert them into ONE Markdown table. Keep the original Chinese header row exactly (炉号 / 名称 / 批次 / 取样时间 / 计划比表 / 实测混样比表 / 设定炉温). Output every row in order, one row per line; do not skip or merge any row. For merged cells, leave the repeated cell EMPTY. Output ONLY the Markdown table, no explanation, no extra text.`;
 
 /* ================= 统一存储层（带容错与备份） ================= */
 const STORE = {
@@ -905,7 +904,7 @@ async function callVision(b64){
   const messages = isOCR
     ? [{role:'user',content:[{type:'text',text:OCR_MD_PROMPT},{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}}]}]
     : [{role:'system',content:OCR_PROMPT},{role:'user',content:[{type:'text',text:'识别这张取样记录表，按要求输出 JSON。'},{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}}]}];
-  const body=JSON.stringify({model,temperature:0,max_tokens:isOCR?2048:1024,messages});
+  const body=JSON.stringify({model,temperature:0,max_tokens:isOCR?4096:1024,messages});
   const headers={'Content-Type':'application/json','Authorization':'Bearer '+key};
   // HTTP 报错立即抛出真实原因；只有网络异常才换通道
   const urls=[base,'https://corsproxy.io/?url='+encodeURIComponent(base)];
@@ -962,15 +961,16 @@ function parseMarkdownTable(txt){
   const header=lines[0].split('|').map(x=>x.trim());
   let colNo=-1,colSurface=-1,colTime=-1;
   header.forEach((h,i)=>{
-    if(/炉号|^炉$/.test(h)) colNo=i;
+    if(/炉号|^炉$|furnace|^no\.?$/i.test(h)) colNo=i;
     else if(/实测/.test(h)&&/比表/.test(h)) colSurface=i;
-    else if(/时间/.test(h)) colTime=i;
+    else if(/时间|time/i.test(h)) colTime=i;
   });
   if(colSurface<0){           // 表头「实测」没识别到 → 取最右侧的比表列（实测在计划右边）
-    const cand=[]; header.forEach((h,i)=>{ if(/比表/.test(h)) cand.push(i); });
+    const cand=[]; header.forEach((h,i)=>{ if(/比表|比表面|surface|specific/i.test(h)) cand.push(i); });
     if(cand.length) colSurface=cand[cand.length-1];
   }
-  if(colNo<0||colSurface<0) return [];
+  if(colNo<0&&colSurface<0) return [];
+  if(colNo<0) colNo=0;        // 炉号列没识别到，退而取第一列（多数表第一列是炉号）
   const rows=[]; let lastNo=null, lastTime='';
   for(let i=1;i<lines.length;i++){
     if(/^\|?[\s:|-]+\|?$/.test(lines[i])) continue;   // 跳过 --- 分隔行
@@ -1074,12 +1074,32 @@ let _worker=null,_workerBusy=false;
 async function getWorker(onStatus){
   if(_worker)return _worker;
   await loadTessLib();
-  onStatus('首次加载中文识别模型（约 1MB，之后不再下载）…');
-  _worker=await Tesseract.createWorker(['chi_sim','eng'],1,{
-    logger:m=>{ if(m.status==='recognizing text'&&onStatus)onStatus('本地识别中… '+Math.round((m.progress||0)*100)+'%'); }
-  });
-  await _worker.setParameters({tessedit_pageseg_mode:'6'});
-  return _worker;
+  onStatus('首次加载中文识别模型（约 3.7MB，之后缓存不再下载）…');
+  // 默认模型源 tessdata.projectnaptha.com 在国内手机网络经常不可达，改用 jsdelivr 镜像并带备用
+  const attempts=[
+    {langPath:'https://cdn.jsdelivr.net/gh/naptha/tessdata@gh-pages/4.0.0_fast',
+     workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
+     corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5'},
+    {langPath:'https://jsd.cdn.zzko.cn/gh/naptha/tessdata@gh-pages/4.0.0_fast',
+     workerPath:'https://jsd.cdn.zzko.cn/npm/tesseract.js@5/dist/worker.min.js',
+     corePath:'https://jsd.cdn.zzko.cn/npm/tesseract.js-core@5'},
+    {langPath:'https://tessdata.projectnaptha.com/4.0.0_fast'}
+  ];
+  let lastErr=null;
+  for(const cfg of attempts){
+    try{
+      _worker=await Tesseract.createWorker(['chi_sim','eng'],1,Object.assign({
+        logger:m=>{ if(m.status==='recognizing text'&&onStatus)onStatus('本地识别中… '+Math.round((m.progress||0)*100)+'%'); }
+      },cfg));
+      await _worker.setParameters({tessedit_pageseg_mode:'6'});
+      return _worker;
+    }catch(e){
+      lastErr=e;
+      try{ if(_worker){await _worker.terminate();} }catch(_){}
+      _worker=null;
+    }
+  }
+  throw new Error('识别引擎/模型初始化失败（'+((lastErr&&lastErr.message)||'模型下载源不可达')+'），请检查网络');
 }
 function collectWords(data){
   const out=[];
@@ -1150,7 +1170,8 @@ async function doOCR(file){
     if(r.err==='no_value')throw new Error('比表列下没识别到数值');
     await applyResult(r.rows,'本地识别');
   }catch(err){
-    let msg=(aiErr?('AI：'+aiErr.message+'\n'):'')+'本地识别也失败：'+err.message;
+    const em=(err&&err.message)?err.message:(typeof err==='string'?err:(err?JSON.stringify(err):'未知错误'));
+    let msg=(aiErr?('AI：'+aiErr.message+'\n'):'')+'本地识别也失败：'+em;
     if(!c.key)msg+='\n建议在 config.html 配置 Key 后用 AI 识别（准确率高）。';
     showOcr(msg,true);
   }
