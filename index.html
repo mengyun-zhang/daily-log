@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>生产日报</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="生产日报">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a5fb4">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231a5fb4'/><text y='68' x='50' text-anchor='middle' font-size='52' fill='white' font-family='sans-serif'>日</text></svg>">
+
+<style>
+:root{--blue:#1a5fb4;--bg:#f5f6f7;--sel:#e9edf2;--line:#e3e8ef;--warn:#c0392b;--warnbg:#fff4f4;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;background:var(--bg);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:#222;font-size:15px;}
+.wrap{max-width:520px;margin:0 auto;padding:16px 12px 90px;}
+.card{background:#fff;border-radius:10px;padding:16px 14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+h1{font-size:18px;margin:0 0 8px;line-height:1.4;color:#111;}
+.dnav{display:flex;justify-content:flex-end;gap:8px;margin-bottom:6px;}
+.dnav button{border:1px solid #d6dde6;background:#eef2f7;color:#333;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.dnav button:active{transform:scale(.96);}
+.dnav #btnToday{display:none;background:#fff;color:var(--blue);border-color:var(--blue);}
+.sec{font-size:14px;font-weight:600;color:var(--blue);border-left:3px solid var(--blue);padding-left:8px;margin:16px 0 10px;display:flex;align-items:center;justify-content:space-between;}
+.cambtn{border:0;border-radius:9px;user-select:none;-webkit-user-select:none;background:linear-gradient(135deg,#ff8a00,#ff5d00);color:#fff;font-size:13px;font-weight:700;padding:9px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(255,110,0,.4);}
+.cambtn:active{transform:scale(.96);}
+.cambtn svg{width:16px;height:16px;}
+#ocrStatus{margin-top:10px;font-size:12px;color:#666;line-height:1.7;white-space:pre-wrap;display:none;background:#f7f9fc;border-radius:8px;padding:10px 12px;}
+#ocrStatus.err{background:var(--warnbg);color:#a33;}
+.orline{margin-top:8px;font-size:12px;color:#888;text-align:center;}
+.orline a{color:var(--blue);text-decoration:underline;cursor:pointer;}
+#orPaste{display:none;margin-top:8px;}
+#orPaste textarea{width:100%;min-height:90px;font-size:12px;padding:8px;border:1px solid var(--line);border-radius:6px;font-family:monospace;}
+#orPaste .btn{width:100%;border:0;border-radius:8px;background:var(--blue);color:#fff;padding:10px;font-size:13px;font-weight:600;margin-top:6px;cursor:pointer;}
+/* 日志页 Key 状态提示条 */
+.keystate{display:none;margin-top:10px;border-radius:8px;padding:9px 12px;font-size:12px;line-height:1.6;}
+.keystate.ok{display:block;background:#eaf7ee;color:#0a7a2f;border:1px solid #bfe3ca;}
+.keystate.no{display:block;background:#fff8e6;color:#8a6100;border:1px solid #f0dfae;}
+.keystate a{color:var(--blue);text-decoration:underline;cursor:pointer;}
+
+/* ===== 配置页 ===== */
+.cfgrow{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid #f0f2f5;font-size:14px;}
+.cfgrow:last-child{border-bottom:0;}
+.cfgrow .lb{width:86px;flex-shrink:0;color:#555;font-size:13px;}
+.cfgrow .val{flex:1;font-size:13px;color:#222;word-break:break-all;}
+.cfgrow .val.mono{font-family:monospace;font-size:12px;}
+.cfgrow input,.cfgrow select{flex:1;min-width:0;border:1px solid var(--line);border-radius:7px;padding:9px 10px;font-size:13px;background:#fafbfc;font-family:inherit;color:#222;}
+.cfgrow input:focus,.cfgrow select:focus{outline:0;border-color:var(--blue);background:#fff;}
+.cfg-actions{display:flex;gap:8px;margin-top:12px;}
+.cfg-actions button{flex:1;border:0;border-radius:9px;padding:12px;font-size:14px;font-weight:600;cursor:pointer;}
+.cfg-actions .save{background:var(--blue);color:#fff;}
+.cfg-actions .test{background:#eef2f7;color:var(--blue);}
+.cfg-actions .ghost{background:#fff;color:#666;border:1px solid var(--line);}
+.pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;}
+.pill.on{background:#e6f6ea;color:#0a7a2f;}
+.pill.off{background:#fdecec;color:#c0392b;}
+.tipbox{background:#f7f9fc;border-radius:8px;padding:10px 12px;font-size:11px;color:#8a94a3;line-height:1.8;margin-top:10px;}
+.tipbox b{color:#5a6472;}
+.chip{display:inline-flex;align-items:center;gap:5px;background:#eef2f7;border-radius:14px;padding:5px 11px;font-size:13px;margin:0 6px 6px 0;}
+.chip i{cursor:pointer;font-style:normal;color:#aaa;font-size:14px;line-height:1;}
+.chip i:hover{color:#c0392b;}
+.toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.82);color:#fff;padding:13px 22px;border-radius:10px;font-size:14px;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;max-width:80%;text-align:center;line-height:1.6;}
+.toast.on{opacity:1;}
+.sec:first-child{margin-top:0;}
+.sec small{font-size:11px;font-weight:400;color:#999;}
+.shift{display:flex;align-items:center;gap:6px;}
+.shift button{border:0;border-radius:20px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;background:#eef2f7;color:#888;transition:all .15s;}
+.shift button.on{background:var(--blue);color:#fff;box-shadow:0 1px 4px rgba(26,95,180,.35);}
+.crew{display:flex;flex-wrap:wrap;gap:9px;}
+.crew button{border:1px solid #d6dde6;background:var(--sel);color:#333;border-radius:8px;padding:10px 14px;font-size:14px;font-weight:600;cursor:pointer;transition:all .12s;min-width:76px;}
+.crew button.off{background:#fff;color:#b6bec9;border-color:#e2e7ee;font-weight:400;}
+.count{margin-top:14px;background:#f7f9fc;border-radius:8px;padding:12px 14px;display:flex;align-items:baseline;gap:6px;}
+.count b{font-size:30px;color:var(--blue);line-height:1;}
+.count span{font-size:14px;color:#666;}
+.count .tip{margin-left:auto;font-size:11px;color:#aaa;}
+
+/* ---- 炉台录入 ---- */
+.ftable{width:100%;border-collapse:collapse;}
+.ftable th{font-size:11px;color:#666;font-weight:600;padding:0 2px 6px;text-align:center;}
+.ftable th:first-child{text-align:left;width:52px;}
+.ftable td{padding:3px 2px;text-align:center;}
+.ftable td:first-child{text-align:left;}
+.fno{font-size:13px;font-weight:600;color:#333;display:inline-flex;align-items:center;gap:4px;cursor:pointer;}
+.fno .dot{width:7px;height:7px;border-radius:50%;background:#d6dde6;}
+.fno.act .dot{background:var(--blue);}
+.fno.act{color:var(--blue);}
+.finput{width:100%;border:1px solid var(--line);border-radius:6px;padding:8px 4px;font-size:13px;text-align:center;background:#fafbfc;color:#222;font-family:inherit;}
+.finput:focus{outline:0;border-color:var(--blue);background:#fff;}
+.finput.bad{border-color:var(--warn);background:var(--warnbg);color:var(--warn);}
+.sum{margin-top:12px;display:flex;gap:8px;}
+.sum div{flex:1;background:#f7f9fc;border-radius:8px;padding:10px;font-size:11px;color:#888;text-align:center;}
+.sum b{display:block;font-size:17px;color:#111;margin-top:3px;}
+.hint{font-size:11px;color:#aaa;margin-top:8px;line-height:1.6;}
+
+/* ---- 校验 ---- */
+.alert{background:var(--warnbg);border:1px solid #f3c6c6;border-radius:8px;padding:10px 12px;font-size:12px;color:#a33;margin-top:12px;line-height:1.7;}
+.alert b{display:block;margin-bottom:4px;}
+.ok{background:#eaf7ee;border:1px solid #bfe3ca;color:#0a7a2f;border-radius:8px;padding:10px 12px;font-size:12px;margin-top:12px;}
+
+/* ---- 底部按钮 ---- */
+.bar{position:fixed;left:0;right:0;bottom:0;background:#fff;box-shadow:0 -2px 10px rgba(0,0,0,.08);padding:10px 12px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;max-width:520px;margin:0 auto;}
+.bar button{flex:1;border:0;border-radius:9px;padding:13px 8px;font-size:15px;font-weight:600;cursor:pointer;}
+.bar .pri{background:var(--blue);color:#fff;flex:1.6;}
+.bar .sec2{background:#eef2f7;color:#333;}
+.bar button:active{transform:scale(.98);}
+
+/* ---- 预览弹层 ---- */
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:50;align-items:flex-end;}
+.mask.on{display:flex;}
+.sheet{background:#f5f6f7;width:100%;max-width:520px;margin:0 auto;max-height:88vh;overflow:auto;border-radius:14px 14px 0 0;}
+.sheet .inner{padding:16px 14px 24px;}
+.pv-title{font-size:17px;font-weight:700;margin:0 0 10px;}
+.pv-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px;}
+.pv-table th{background:#eef2f7;padding:7px 4px;border:1px solid #dfe4ea;font-size:12px;}
+.pv-table td{padding:7px 4px;border:1px solid #e8ebef;text-align:center;}
+.pv-table tr.warn td{background:#fff8e6;}
+.pv-table tr.tot td{background:#eef2f7;font-weight:600;}
+.txt{white-space:pre-wrap;font-size:13px;line-height:1.9;background:#fff;border-radius:8px;padding:12px;}
+
+/* ===== 左侧抽屉菜单 ===== */
+.navwrap{position:fixed;left:0;top:50%;transform:translateY(-50%);z-index:900;}
+.navwrap>summary{list-style:none;cursor:pointer;}
+.navwrap>summary::-webkit-details-marker{display:none;}
+.navtoggle{display:block;background:#1a5fb4;color:#fff;border:0;border-radius:0 12px 12px 0;padding:22px 9px;font-size:14px;font-weight:700;box-shadow:2px 0 8px rgba(26,95,180,.4);writing-mode:vertical-rl;text-orientation:upright;line-height:1.3;letter-spacing:4px;user-select:none;-webkit-user-select:none;touch-action:manipulation;pointer-events:auto;}
+.navwrap[open]>summary{display:none;}
+.navwrap[open]{top:0;transform:none;}
+.hintclose{font-size:10px;color:#c3cad3;}
+.drawer{position:fixed;left:0;top:0;bottom:0;width:140px;background:#fff;box-shadow:2px 0 14px rgba(0,0,0,.18);z-index:70;display:flex;flex-direction:column;padding-top:14px;}
+
+.drawer .dhead{display:flex;align-items:center;justify-content:space-between;padding:0 10px 10px;border-bottom:1px solid #eef1f5;font-size:13px;color:#888;}
+.drawer .dhead button{border:0;background:#eef2f7;color:#555;border-radius:6px;font-size:12px;padding:4px 7px;cursor:pointer;}
+.ditem{display:flex;align-items:center;gap:8px;padding:14px 12px;font-size:14px;color:#333;cursor:pointer;border-left:3px solid transparent;user-select:none;}
+.ditem .ic{width:17px;height:17px;flex-shrink:0;color:#8b98a8;}
+.ditem.on{background:#eef4fb;color:#1a5fb4;font-weight:600;border-left-color:#1a5fb4;}
+.ditem.on .ic{color:#1a5fb4;}
+.ditem:active{background:#f2f5f9;}
+.navwrap[open]::before{content:"";position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:65;}
+.pane{display:none;}
+.pane.on{display:block;}
+.empty{text-align:center;color:#b4bcc6;padding:50px 20px;font-size:13px;line-height:2;}
+.empty svg{width:44px;height:44px;color:#d3dae3;display:block;margin:0 auto 8px;}
+
+</style>
+</head>
+<body>
+
+<details class="navwrap" id="navWrap">
+  <summary class="navtoggle">菜单</summary>
+  <div class="drawer" id="drawer">
+    <div class="dhead"><span>功能菜单</span><span class="hintclose">点其他地方收起</span></div>
+    <a class="ditem on" data-pane="log">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>日志
+    </a>
+    <a class="ditem" data-pane="history">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>历史
+    </a>
+    <a class="ditem" data-pane="shift">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>排班
+    </a>
+    <a class="ditem" data-pane="config">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="9"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>配置
+    </a>
+  </div>
+</details>
+
+<div class="pane on" id="pane-log">
+<div class="wrap">
+  <div class="card">
+    <h1 id="title">----年--月--日 生产日志</h1>
+    <div class="dnav">
+      <button id="btnPrev">‹ 前一天</button>
+      <button id="btnToday">回到今天</button>
+    </div>
+
+    <div class="sec">一、班次</div>
+    <div class="shift" style="justify-content:flex-end;margin-top:-34px;">
+      <button id="btnDay" class="on">白班</button>
+      <button id="btnNight">夜班</button>
+    </div>
+
+    <div class="sec">二、当班人员 <small>点击切换 是否当班</small></div>
+    <div class="crew" id="crew"></div>
+    <div class="count">
+      <b id="cnt">7</b><span>人当班</span>
+      <span class="tip">灰色 = 当班 · 白色 = 不计入</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec">三、炉台运行数据
+      <span style="display:flex;gap:6px;">
+      <button class="cambtn xl" id="btnXls">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>
+        上传Excel
+      </button>
+      <label class="cambtn" for="camFile" id="btnCam">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        拍照识别
+      </label>
+      </span>
+    </div>
+    <input id="camFile" type="file" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px;">
+    <input id="xlsFile" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px;">
+    <div id="ocrStatus"></div>
+    <div class="orline" id="orLine">没有Key？<a id="orLink">粘贴小微识别结果</a>（免费，同样自动填表）</div>
+    <div id="orPaste">
+      <textarea id="orText" placeholder="把小微的回复原样粘贴到这里，例如：&#10;1炉:3.1&#10;4炉:4.8（3:20）"></textarea>
+      <button class="btn" id="orGo">解析并填入比表列</button>
+    </div>
+    <div id="keyState" class="keystate"></div>
+    <table class="ftable">
+      <tr><th>炉号</th><th>产量<br>kg</th><th>风量</th><th>松装<br>kg</th><th>比表<br>m²/g</th></tr>
+      <tbody id="ftbody"></tbody>
+    </table>
+    <div class="sum">
+      <div>在产炉台<b id="sAct">0</b></div>
+      <div>总产量(kg)<b id="sSum">0</b></div>
+      <div>单炉均值<b id="sAvg">0</b></div>
+    </div>
+    <div class="hint">只填在产炉台即可，未填的炉号不会出现在日报里。比表 >10 会标红提示复核。</div>
+    <div id="valbox"></div>
+  </div>
+</div>
+
+<div class="bar" id="logBar">
+  <button class="sec2" id="btnClear">清空</button>
+  <button class="pri" id="btnPreview">生成日报</button>
+</div>
+</div><!-- /pane-log -->
+
+<div class="pane" id="pane-history">
+  <div class="wrap"><div class="card"><div class="sec">历史日志</div>
+    <div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+    <div>历史日志列表将在这里展示</div><div style="font-size:11px;">（待开发）</div></div>
+  </div></div>
+</div>
+
+<div class="pane" id="pane-shift">
+  <div class="wrap"><div class="card"><div class="sec">排班表</div>
+    <div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+    <div>排班安排将在这里管理</div><div style="font-size:11px;">（待开发）</div></div>
+  </div></div>
+</div>
+
+<div class="pane" id="pane-config">
+  <div class="wrap">
+
+    <div class="card">
+      <div class="sec">识别接口（AI 拍照识别用）</div>
+      <div class="cfgrow"><span class="lb">服务商</span>
+        <select id="cfgProvider">
+          <option value="zhipu">智谱 GLM-4V-Flash（永久免费）</option>
+          <option value="silicon">硅基流动 SiliconFlow</option>
+          <option value="custom">自定义接口</option>
+        </select>
+      </div>
+      <div class="cfgrow"><span class="lb">接口地址</span><input id="cfgBase" placeholder="选择服务商后自动填入"></div>
+      <div class="cfgrow"><span class="lb">模型名</span><input id="cfgModel" placeholder="选择服务商后自动填入"></div>
+      <div class="cfgrow"><span class="lb">API Key</span><input id="cfgKey" type="password" placeholder="粘贴你的 Key（只存本机）"></div>
+      <div class="cfgrow"><span class="lb">状态</span><span id="cfgKeyState" class="pill off">未配置</span></div>
+      <div class="cfg-actions">
+        <button class="save" id="cfgSave">保存</button>
+        <button class="test" id="cfgTest">测试连通</button>
+      </div>
+      <div class="tipbox">
+        <b>智谱（推荐，永久免费不限次）：</b>打开 open.bigmodel.cn → 注册 → 控制台 → API Keys → 创建，复制形如 <span style="font-family:monospace">xxxx.xxxx</span> 的字符串。<br>
+        <b>硅基流动：</b>cloud.siliconflow.cn 注册送 14 元额度，模型填 Qwen/Qwen2.5-VL-32B-Instruct。<br>
+        Key 只保存在这台手机的浏览器里，不会上传到任何服务器。
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="sec">基础信息</div>
+      <div class="cfgrow"><span class="lb">车间/班组</span><input id="cfgTeam" placeholder="如：一车间甲班（用于日报标题）"></div>
+      <div class="cfgrow"><span class="lb">比表预警值</span><input id="cfgSurfaceMax" inputmode="decimal" placeholder="超过该值标红提示，默认 10"></div>
+      <div class="cfg-actions"><button class="save" id="cfgSave2">保存基础信息</button></div>
+    </div>
+
+    <div class="card">
+      <div class="sec">人员名单</div>
+      <div id="cfgCrewList" style="margin-top:6px;"></div>
+      <div class="cfgrow" style="border:0;padding-top:8px;">
+        <input id="cfgNewCrew" placeholder="输入姓名后点添加">
+        <button id="cfgAddCrew" style="border:0;background:var(--blue);color:#fff;border-radius:7px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;">添加</button>
+      </div>
+      <div class="tipbox">人员名单会同步到日志页的人员按钮。删除人员不会影响历史日志里已保存的记录。</div>
+    </div>
+
+    <div class="card">
+      <div class="sec">炉号设置</div>
+      <div class="cfgrow"><span class="lb">炉号列表</span><input id="cfgFurnaces" placeholder="如：1,2,3,4,5,7,8,10,11,12"></div>
+      <div class="cfg-actions"><button class="save" id="cfgSave3">保存炉号</button></div>
+      <div class="tipbox">用英文逗号分隔，按填写顺序显示在日志页表格里。</div>
+    </div>
+
+    <div class="card">
+      <div class="sec">数据备份</div>
+      <div class="cfgrow"><span class="lb">已存日志</span><span class="val" id="cfgDataStat">—</span></div>
+      <div class="cfg-actions">
+        <button class="save" id="cfgExport">导出备份</button>
+        <button class="ghost" id="cfgImportBtn">导入备份</button>
+      </div>
+      <input type="file" id="cfgImportFile" accept=".json,application/json" style="position:absolute;width:1px;height:1px;opacity:0;left:-9999px;">
+      <div class="tipbox">
+        <b>重要：</b>所有数据都存在这台手机的浏览器里（localhost 存储），换手机、清理浏览器数据会丢失。<br>
+        建议每周点一次「导出备份」，把文件存到微信收藏或网盘；换手机时用「导入备份」一键恢复。
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="sec">关于</div>
+      <div class="cfgrow"><span class="lb">版本</span><span class="val">v1.0 单机版</span></div>
+      <div class="cfgrow"><span class="lb">数据位置</span><span class="val">本机浏览器存储，不上传服务器</span></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="mask" id="mask">
+  <div class="sheet">
+    <div class="inner">
+      <div class="pv-title" id="pvTitle"></div>
+      <div id="pvBody"></div>
+      <div class="bar" style="position:sticky;bottom:0;box-shadow:none;padding:12px 0 0;background:transparent;">
+        <button class="sec2" id="btnClose">关闭</button>
+        <button class="pri" id="btnCopy">复制文本</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/**
+ * 极简 xlsx 解析器（纯前端，无依赖，无需 Key）
+ * 支持：标准 .xlsx（Office Open XML），取第一个工作表的单元格文本与数值。
+ * 原理：xlsx 本质是 zip；解压出 sheet1.xml + sharedStrings.xml 后解析。
+ * 为减小体积，这里用浏览器原生 DecompressionStream('deflate-raw') 解压。
+ */
+
+async function readXlsx(file) {
+  const buf = await file.arrayBuffer();
+  const entries = await unzip(buf);
+  const shared = parseSharedStrings(entries['xl/sharedStrings.xml']);
+  const sheetKey = Object.keys(entries).filter(k => /^xl\/worksheets\/sheet\d+\.xml$/.test(k)).sort()[0];
+  if (!sheetKey) throw new Error('未找到工作表，请确认是 .xlsx 文件');
+  const rows = parseSheet(entries[sheetKey], shared);
+  return rows;
+}
+
+/* ---------- zip 解压（仅用浏览器原生 API） ---------- */
+async function unzip(buf) {
+  const dv = new DataView(buf);
+  const u8 = new Uint8Array(buf);
+  // 从尾部找 End of Central Directory (0x06054b50)
+  let eocd = -1;
+  for (let i = u8.length - 22; i >= Math.max(0, u8.length - 66000); i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('不是有效的 xlsx（zip）文件');
+  const count = dv.getUint16(eocd + 10, true);
+  let off = dv.getUint32(eocd + 16, true);
+  const out = {};
+  for (let n = 0; n < count; n++) {
+    if (dv.getUint32(off, true) !== 0x02014b50) break;
+    const method = dv.getUint16(off + 10, true);
+    const compSize = dv.getUint32(off + 20, true);
+    const nameLen = dv.getUint16(off + 28, true);
+    const extraLen = dv.getUint16(off + 30, true);
+    const commentLen = dv.getUint16(off + 32, true);
+    const localOff = dv.getUint32(off + 42, true);
+    const name = new TextDecoder('utf-8').decode(u8.subarray(off + 46, off + 46 + nameLen));
+    // 读本地头得到真实数据起点
+    const lnameLen = dv.getUint16(localOff + 26, true);
+    const lextraLen = dv.getUint16(localOff + 28, true);
+    const dataStart = localOff + 30 + lnameLen + lextraLen;
+    const comp = u8.subarray(dataStart, dataStart + compSize);
+    if (name.endsWith('.xml') || name.endsWith('.rels')) {
+      try {
+        out[name] = method === 0 ? new TextDecoder('utf-8').decode(comp) : await inflateRaw(comp);
+      } catch (e) { /* 跳过无法解压的条目 */ }
+    }
+    off += 46 + nameLen + extraLen + commentLen;
+  }
+  return out;
+}
+
+async function inflateRaw(comp) {
+  if (typeof DecompressionStream === 'undefined') throw new Error('当前浏览器不支持解压，请用最新版 Chrome/Safari/微信内置浏览器');
+  const ds = new DecompressionStream('deflate-raw');
+  const stream = new Blob([comp]).stream().pipeThrough(ds);
+  return await new Response(stream).text();
+}
+
+/* ---------- 解析 sharedStrings ---------- */
+function parseSharedStrings(xml) {
+  if (!xml) return [];
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  const list = [];
+  doc.querySelectorAll('si').forEach(si => {
+    // 拼接所有 t 节点（处理富文本 run）
+    let s = '';
+    si.querySelectorAll('t').forEach(t => s += t.textContent || '');
+    list.push(s.trim());
+  });
+  return list;
+}
+
+/* ---------- 解析工作表为二维数组 ---------- */
+function parseSheet(xml, shared) {
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  const out = [];
+  doc.querySelectorAll('row').forEach(rowEl => {
+    const r = parseInt(rowEl.getAttribute('r') || (out.length + 1));
+    const cells = [];
+    rowEl.querySelectorAll('c').forEach(c => {
+      const ref = c.getAttribute('r') || '';
+      const col = colIndex(ref); // 0-based
+      const t = c.getAttribute('t');
+      let v = '';
+      if (t === 'inlineStr') {
+        v = (c.textContent || '').trim();
+      } else {
+        const vEl = c.querySelector('v');
+        if (vEl) {
+          const raw = vEl.textContent || '';
+          if (t === 's') v = shared[parseInt(raw)] ?? '';
+          else v = raw;
+        }
+      }
+      cells[col] = v.trim();
+    });
+    for (let i = 0; i < cells.length; i++) if (cells[i] === undefined) cells[i] = '';
+    out[r - 1] = cells;
+  });
+  // 填满空行
+  for (let i = 0; i < out.length; i++) if (!out[i]) out[i] = [];
+  return out;
+}
+
+function colIndex(ref) {
+  const m = ref.match(/^([A-Z]+)/);
+  if (!m) return 0;
+  let n = 0;
+  for (const ch of m[1]) n = n * 26 + (ch.charCodeAt(0) - 64);
+  return n - 1;
+}
+
+/* ---------- 从二维表定位列头，抽取记录行 ---------- */
+function sheetToRecords(rows) {
+  // 找表头行：包含"炉号"的那一行
+  let headIdx = -1, head = null;
+  for (let i = 0; i < Math.min(rows.length, 15); i++) {
+    const line = (rows[i] || []).join('|');
+    if (line.includes('炉号')) { headIdx = i; head = rows[i]; break; }
+  }
+  if (headIdx < 0) throw new Error('表格中没找到“炉号”列，请确认表头是否完整');
+
+  const findCol = (...names) => {
+    for (const n of names) {
+      const i = head.findIndex(h => String(h).replace(/\s/g, '').includes(n));
+      if (i >= 0) return i;
+    }
+    return -1;
+  };
+  const cNo   = findCol('炉号');
+  const cName = findCol('名称', '品名');
+  const cBatch= findCol('批次', '批号');
+  const cTime = findCol('取样时间', '时间');
+  const cSurf = findCol('实测混样比表', '实测', '比表');
+  const cTemp = findCol('设定炉温', '炉温');
+
+  const recs = [];
+  let lastNo = null, lastT = '';
+  for (let i = headIdx + 1; i < rows.length; i++) {
+    const r = rows[i] || [];
+    const cell = idx => idx >= 0 ? String(r[idx] ?? '').trim() : '';
+    let no = parseInt(cell(cNo).replace(/[^\d]/g, ''));
+    if (!no) no = lastNo;           // 合并单元格 / 续行
+    if (!no) continue;
+    lastNo = no;
+    const tm = cell(cTime); if (tm) lastT = tm;
+    const sv = cell(cSurf);
+    const num = sv === '' ? null : parseFloat(sv.replace(/[^\d.]/g, ''));
+    if (sv !== '' && isNaN(num)) {
+      // 非数字（如“未出结果”），视为空
+    }
+    recs.push({
+      no, name: cell(cName), batch: cell(cBatch),
+      time: tm || lastT,
+      surface: (sv === '' || isNaN(num)) ? null : num,
+      temp: cTemp >= 0 ? cell(cTemp) : null,
+      order: recs.length
+    });
+  }
+  return recs;
+}
+
+window.XlsxLite = { readXlsx, sheetToRecords };
+
+let CREW=[];           // 由 CFG 驱动
+let FURNACES=[];       // 由 CFG 驱动
+const $=s=>document.querySelector(s);
+
+const TODAY=new Date();TODAY.setHours(0,0,0,0);
+let cur=new Date(TODAY);
+let shift='白班';
+const WD='日一二三四五六';
+const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const key=s=>`dr_log_${iso(cur)}_${shift}_${s}`;
+
+/* ============ 班次 ============ */
+$('#btnDay').onclick=()=>{shift='白班';renderAll();};
+$('#btnNight').onclick=()=>{shift='夜班';renderAll();};
+$('#btnPrev').onclick=()=>{cur.setDate(cur.getDate()-1);renderAll();};
+$('#btnToday').onclick=()=>{cur=new Date(TODAY);renderAll();};
+
+/* ============ 人员（由配置驱动） ============ */
+let sel=[];
+function loadSel(){
+  CREW = readCfg().crew.slice();
+  const saved = STORE.get(key('crew'), null);
+  if (Array.isArray(saved) && saved.length === CREW.length) return saved.slice();
+  return CREW.map(()=>true);   // 默认全部当班
+}
+const crewBox=$('#crew');
+function renderCrew(){
+  CREW = readCfg().crew.slice();
+  crewBox.innerHTML='';
+  CREW.forEach((n,i)=>{
+    const b=document.createElement('button');
+    b.textContent=n;
+    b.onclick=()=>{sel[i]=!sel[i];b.className=sel[i]?'':'off';refreshCrew();
+      STORE.set(key('crew'), sel);};
+    crewBox.appendChild(b);
+  });
+  if (sel.length !== CREW.length) sel = CREW.map(()=>true);
+  refreshCrew();
+}
+function refreshCrew(){
+  $('#cnt').textContent=sel.filter(Boolean).length;
+  [...crewBox.children].forEach((b,i)=>b.className=sel[i]?'':'off');
+}
+
+/* ============ 炉台录入 ============ */
+let fdata={};
+function loadF(){
+  return STORE.get(key('furnace'), {}) || {};
+}
+const tbody=$('#ftbody');
+function rebuildFurnaceTable(){
+  FURNACES = readCfg().furnaces.slice().sort((a,b)=>a-b);
+  tbody.innerHTML='';
+  FURNACES.forEach(no=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><span class="fno" data-no="${no}"><i class="dot"></i>${no}#</span></td>
+      <td><input class="finput" inputmode="decimal" data-no="${no}" data-f="output" placeholder="—"></td>
+      <td><input class="finput" inputmode="decimal" data-no="${no}" data-f="airflow" placeholder="—"></td>
+      <td><input class="finput" inputmode="decimal" data-no="${no}" data-f="density" placeholder="—"></td>
+      <td><input class="finput" inputmode="decimal" data-no="${no}" data-f="surface" placeholder="—"></td>`;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('.fno').forEach(el=>{
+    el.onclick=()=>{const no=el.dataset.no;
+      el.classList.toggle('act');
+      if(!el.classList.contains('act')){
+        tbody.querySelectorAll(`input[data-no="${no}"]`).forEach(i=>i.value='');
+      }
+      collect();};
+  });
+  tbody.querySelectorAll('.finput').forEach(inp=>{
+    inp.oninput=()=>{
+      const no=inp.dataset.no;
+      if(inp.value.trim())tbody.querySelector(`.fno[data-no="${no}"]`).classList.add('act');
+      collect();
+    };
+    inp.onblur=()=>collect();
+  });
+}
+
+function collect(){
+  fdata={};
+  let act=0,total=0,cntOut=0;
+  FURNACES.forEach(no=>{
+    const g=f=>tbody.querySelector(`input[data-no="${no}"][data-f="${f}"]`).value.trim();
+    const o=g('output'),a=g('airflow'),d=g('density'),s=g('surface');
+    if(!o&&!a&&!d&&!s)return;
+    act++;
+    const rec={output:num(o),airflow:num(a),density:num(d),surface:num(s)};
+    fdata[no]=rec;
+    if(rec.output!==null){total+=rec.output;cntOut++;}
+  });
+  $('#sAct').textContent=act;
+  $('#sSum').textContent=fmt(total);
+  $('#sAvg').textContent=cntOut?fmt(total/cntOut,1):0;
+  validate();
+  STORE.set(key('furnace'), fdata);
+  return {act,total,cntOut};
+}
+const num=v=>{if(v==='')return null;const n=parseFloat(v.replace(/[^\d.]/g,''));return isNaN(n)?null:n;};
+const fmt=(v,nd=2)=>Number.isFinite(v)?String(+v.toFixed(nd)):'0';
+
+/* ============ 校验 ============ */
+function validate(){
+  const issues=[];let serious=0;
+  Object.keys(fdata).forEach(no=>{
+    const r=fdata[no];
+    const surfInp=tbody.querySelector(`input[data-no="${no}"][data-f="surface"]`);
+    surfInp.classList.remove('bad');
+    if(r.surface!==null&&r.surface>(readCfg().surfaceMax||10)){
+      issues.push(`${no}#炉 比表 ${r.surface} 超出常规区间(>${readCfg().surfaceMax||10})，疑似笔误`);
+      surfInp.classList.add('bad');serious++;
+    }
+    if(r.output!==null&&r.output>2000){
+      issues.push(`${no}#炉 产量 ${r.output}kg 明显偏大，请核对`);
+    }
+    if(r.output!==null&&r.density===null&&r.surface===null){
+      issues.push(`${no}#炉 填了产量但松装/比表为空`);
+    }
+  });
+  const box=$('#valbox');
+  if(!issues.length){
+    box.innerHTML=Object.keys(fdata).length?'<div class="ok">✓ 数据校验通过，可生成日报</div>':'';
+    return {ok:true,issues};
+  }
+  box.innerHTML=`<div class="alert"><b>待复核 ${issues.length} 项</b>${issues.join('<br>')}</div>`;
+  return {ok:serious===0,issues};
+}
+
+/* ============ 渲染 ============ */
+function renderAll(){
+  const d=cur;
+  if(!tbody.children.length) rebuildFurnaceTable();
+  const _team=readCfg().team||'';
+  $('#title').textContent=`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（周${WD[d.getDay()]}）${shift}生产日志${_team?' · '+_team:''}`;
+  $('#btnDay').classList.toggle('on',shift==='白班');
+  $('#btnNight').classList.toggle('on',shift==='夜班');
+  $('#btnToday').style.display=iso(d)===iso(TODAY)?'none':'block';
+  sel=loadSel();refreshCrew();
+  // 回填该日期的炉台数据
+  fdata=loadF();
+  FURNACES.forEach(no=>{
+    const r=fdata[no]||{};
+    ['output','airflow','density','surface'].forEach(f=>{
+      const inp=tbody.querySelector(`input[data-no="${no}"][data-f="${f}"]`);
+      inp.value=r[f]===null||r[f]===undefined?'':r[f];
+    });
+    const fnoEl=tbody.querySelector(`.fno[data-no="${no}"]`);
+    fnoEl.classList.toggle('act',!!fdata[no]);
+  });
+  collect();
+}
+
+/* ============ 预览与复制 ============ */
+$('#btnPreview').onclick=()=>{
+  const act=Object.keys(fdata).length;
+  if(!act){alert('请先填写至少一个炉台的运行数据');return;}
+  const people=CREW.filter((_,i)=>sel[i]);
+  const d=cur;
+  $('#pvTitle').textContent=`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（周${WD[d.getDay()]}）${shift}生产日志`;
+
+  let rows='',total=0,cntOut=0;
+  FURNACES.forEach(no=>{
+    const r=fdata[no];if(!r)return;
+    if(r.output!==null){total+=r.output;cntOut++;}
+    const w=r.surface!==null&&r.surface>10;
+    rows+=`<tr${w?' class="warn"':''}><td>${no}#</td><td>${r.output??'—'}</td><td>${r.airflow??'—'}</td><td>${r.density??'—'}</td><td>${r.surface??'—'}</td></tr>`;
+  });
+  const avg=cntOut?fmt(total/cntOut,1):0;
+
+  $('#pvBody').innerHTML=`
+   <div class="txt" style="margin-bottom:10px;">当班人员：${people.join('、')}<br>共 ${people.length} 人</div>
+   <table class="pv-table"><tr><th>炉号</th><th>产量(kg)</th><th>风量</th><th>松装(kg)</th><th>比表(m²/g)</th></tr>
+   ${rows}<tr class="tot"><td>合计</td><td>${fmt(total)}</td><td colspan="3">在产 ${act} 台 · 均值 ${avg} kg</td></tr></table>`;
+  $('#mask').classList.add('on');
+};
+$('#btnClose').onclick=()=>$('#mask').classList.remove('on');
+$('#mask').onclick=e=>{if(e.target===$('#mask'))$('#mask').classList.remove('on');};
+
+$('#btnCopy').onclick=()=>{
+  const people=CREW.filter((_,i)=>sel[i]);
+  const d=cur;
+  let L=`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（周${WD[d.getDay()]}）${shift}生产日志\n`;
+  L+=`当班人员：${people.join('、')}（共${people.length}人）\n\n炉台运行数据：\n`;
+  FURNACES.forEach(no=>{const r=fdata[no];if(!r)return;
+    const p=[];if(r.output!==null)p.push(`产量${r.output}kg`);if(r.airflow!==null)p.push(`风量${r.airflow}`);
+    if(r.density!==null)p.push(`松装${r.density}kg`);if(r.surface!==null)p.push(`比表${r.surface}m²/g`);
+    L+=`${no}#炉：${p.join('，')}\n`;});
+  const t=Object.values(fdata).reduce((a,r)=>a+(r.output||0),0);
+  const o=Object.values(fdata).filter(r=>r.output!==null).length;
+  L+=`\n合计产量 ${fmt(t)}kg（在产 ${Object.keys(fdata).length} 台，有产量 ${o} 台）`;
+  const done=()=>{const b=$('#btnCopy');b.textContent='✓ 已复制';setTimeout(()=>b.textContent='复制文本',1500);};
+  if(navigator.clipboard)navigator.clipboard.writeText(L).then(done,()=>fallback(L,done));
+  else fallback(L,done);
+};
+function fallback(txt,cb){const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove();cb();}
+
+$('#btnClear').onclick=()=>{
+  if(!confirm('清空当前日期+班次的炉台数据？人员选择不受影响。'))return;
+  tbody.querySelectorAll('.finput').forEach(i=>i.value='');
+  tbody.querySelectorAll('.fno').forEach(i=>i.classList.remove('act'));
+  collect();
+};
+const OCR_PROMPT=`你是精确的表格识别引擎。图片是一张中文"取样记录表"，列含：炉号/名称/批次/取样时间/计划比表m²/g/实测混样比表m²/g/设定炉温℃。
+任务：逐行如实转录，输出严格 JSON，不要解释、不要 markdown。
+格式：{"rows":[{"no":8,"name":"5通广通刀片标素混","batch":"205","time":"0:00","surface":4.1,"temp":1195}]}
+规则：1.一行一个对象，保持原行顺序与行数，合并单元格续行炉号沿用上一行。2.实测混样比表为空则 surface 填 null。3.只转录"实测混样比表"列，不要抄成"计划比表"（计划通常写 3-4.5 区间）。4.数字保留原样不四舍五入。5.模糊无法确定填 null，不要猜。`;
+
+/* ================= 统一存储层（带容错与备份） ================= */
+const STORE = {
+  PREFIX: 'dr_',        // 统一前缀
+  CFG: 'dr_cfg_v1',     // 全局配置
+  _mem: {},             // 内存兜底（localStorage 不可用时）
+  ok: (function(){ try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return true; }catch(e){ return false; } })(),
+
+  get(k, def) {
+    if (!this.ok) return (k in this._mem) ? this._mem[k] : def;
+    try {
+      const raw = localStorage.getItem(k);
+      if (raw === null) return def;
+      return JSON.parse(raw);
+    } catch (e) { return def; }
+  },
+  set(k, v) {
+    this._mem[k] = v;
+    if (!this.ok) return false;
+    try { localStorage.setItem(k, JSON.stringify(v)); return true; }
+    catch (e) {
+      toast('本机存储已满，写入失败，请到配置页导出备份并清理旧数据');
+      return false;
+    }
+  },
+  del(k) {
+    delete this._mem[k];
+    if (this.ok) { try { localStorage.removeItem(k); } catch (e) {} }
+  },
+  keys(prefix) {
+    const out = [];
+    if (!this.ok) return Object.keys(this._mem).filter(k => k.startsWith(prefix));
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(prefix)) out.push(k);
+      }
+    } catch (e) {}
+    return out;
+  }
+};
+
+/* ---------- 全局配置（默认值） ---------- */
+const PROVIDERS = {
+  zhipu:   { name:'智谱 GLM-4V-Flash', base:'https://open.bigmodel.cn/api/paas/v4/chat/completions', model:'glm-4v-flash' },
+  silicon: { name:'硅基流动', base:'https://api.siliconflow.cn/v1/chat/completions', model:'Qwen/Qwen2.5-VL-32B-Instruct' },
+  custom:  { name:'自定义', base:'', model:'' }
+};
+const DEFAULT_CFG = {
+  provider: 'zhipu',
+  base: PROVIDERS.zhipu.base,
+  model: PROVIDERS.zhipu.model,
+  key: '',
+  team: '',
+  surfaceMax: 10,
+  crew: ['亷丽霞','许来霞','刘晓燕','张春燕','刘淑会','岳静','许娜娜'],
+  furnaces: [1,2,3,4,5,7,8,10,11,12]
+};
+let CFG = Object.assign({}, DEFAULT_CFG, STORE.get(STORE.CFG, {}));
+// 兼容：把老版本的 rep_cfg_kKey 迁移过来
+(function migrateOld(){
+  if (CFG.key) return;
+  const oldKey = localStorage.getItem('rep_cfg_kKey');
+  if (oldKey) {
+    CFG.key = oldKey.trim();
+    STORE.set(STORE.CFG, CFG);
+  }
+})();
+function saveCfg(){ STORE.set(STORE.CFG, CFG); }
+function readCfg(){ CFG = Object.assign({}, DEFAULT_CFG, STORE.get(STORE.CFG, {})); return CFG; }
+
+/* ---------- 轻提示 ---------- */
+function toast(msg, ms) {
+  const t = document.getElementById('toast');
+  if (!t) { alert(msg); return; }
+  t.textContent = msg;
+  t.classList.add('on');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('on'), ms || 1800);
+}
+
+const ENGINES = {
+  zhipu:   { base: PROVIDERS.zhipu.base, model: PROVIDERS.zhipu.model },
+  silicon: { base: PROVIDERS.silicon.base, model: PROVIDERS.silicon.model }
+};
+
+const camBtn=$('#btnCam'),camFile=$('#camFile'),ocrStatus=$('#ocrStatus');
+// 点击时检查配置状态
+camBtn.addEventListener('click',()=>{
+  const c = readCfg();
+  if (!c.key) {
+    showOcr('还没有配置 API Key。\n请点左上「菜单 → 配置」，粘贴 Key 并保存（只需一次）。\n也可以改用「粘贴小微识别结果」。',true);
+  } else {
+    showOcr('已打开图片选择…选择后会自动开始识别');
+  }
+  setTimeout(()=>{ if(!camFile.files||!camFile.files.length){ try{camFile.click();}catch(e){} } },50);
+});
+function showOcr(t,err){ocrStatus.style.display='block';ocrStatus.className=err?'err':'';ocrStatus.textContent=t;}
+
+/* ---------- 日志页 Key 状态条 ---------- */
+function refreshKeyState(){
+  const el = document.getElementById('keyState');
+  if (!el) return;
+  const c = readCfg();
+  if (c.key) {
+    el.className = 'keystate ok';
+    el.innerHTML = '✓ 识别接口已配置（' + (PROVIDERS[c.provider]||{}).name + '），可直接拍照识别';
+  } else {
+    el.className = 'keystate no';
+    el.innerHTML = '未配置识别接口，拍照识别不可用。<a id="goConfig">去配置 →</a>';
+    const a = document.getElementById('goConfig');
+    if (a) a.onclick = () => {
+      const it = document.querySelector('.ditem[data-pane="config"]');
+      if (it) it.click();
+    };
+  }
+}
+
+camFile.onchange=e=>{const f=e.target.files[0];if(f)doOCR(f);};
+
+function compressImg(file,maxSide){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const s=Math.min(1,maxSide/Math.max(img.width,img.height));
+      const c=document.createElement('canvas');
+      c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);
+      const ctx=c.getContext('2d');
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);
+      ctx.drawImage(img,0,0,c.width,c.height);
+      res(c.toDataURL('image/jpeg',0.9).split(',')[1]);
+    };
+    img.onerror=rej;img.src=URL.createObjectURL(file);
+  });
+}
+
+async function callVision(b64){
+  const c = readCfg();
+  const base = c.base || PROVIDERS.zhipu.base;
+  const model = c.model || PROVIDERS.zhipu.model;
+  const key = c.key || '';
+  if(!key){
+    throw new Error('没有配置 API Key。请点「菜单 → 配置」填写并保存 Key。');
+  }
+  const res=await fetch(base,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+    body:JSON.stringify({model,temperature:0,max_tokens:4096,messages:[
+      {role:'system',content:OCR_PROMPT},
+      {role:'user',content:[{type:'text',text:'识别这张取样记录表，按要求输出 JSON。'},{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}}]}]})});
+  const raw=await res.text();
+  if(!res.ok)throw new Error('HTTP '+res.status+'：'+raw.slice(0,150));
+  const j=JSON.parse(raw);
+  let txt=(j.choices[0].message.content||'').replace(/```json|```/g,'').trim();
+  const m=txt.match(/\{[\s\S]*\}/);
+  if(!m)throw new Error('返回不是JSON：'+txt.slice(0,150));
+  return JSON.parse(m[0]);
+}
+
+const t2m=t=>{const m=String(t||'').trim().match(/^(\d{1,2})[:：点](\d{2})?$/);return m?(+m[1])*60+(+m[2]||0):-1;};
+function parsePasteText(txt){
+  txt=txt.trim();
+  if(txt.startsWith('{')){try{return JSON.parse(txt).rows||[];}catch{return [];}}
+  const rows=[];
+  for(const l of txt.split('\n')){
+    const line=l.trim().replace(/^[-•·*]+\s*/,'').replace(/^\d+[.、]\s*/,'').replace(/^[-•·*]+\s*/,'');if(!line)continue;
+    let m=line.match(/^(?:#?炉号)?\s*(\d{1,2})\s*(?:号|#)?\s*炉\s*[:：]\s*([\d.]+|—|-)\s*[（(]?([\d:：]+)?/);
+    if(m){rows.push({no:m[1],time:m[3]||'',surface:m[2]==='—'||m[2]==='-'?null:m[2]});continue;}
+    const p=line.split(/[,，\t]+/).map(s=>s.trim());
+    if(p.length>=3)rows.push({no:p[0],time:p[1],surface:p[2]});
+  }
+  return rows;
+}
+function latestByFurnace(rows){
+  const map=new Map();let lastNo=null,lastT='';
+  const norm=arr=>{const out=[];for(const r of arr){
+    let no=parseInt(r.no??r['炉号']);if(!no)no=lastNo;if(!no)continue;lastNo=no;
+    const tm=String(r.time??r['取样时间']??'').trim();if(tm)lastT=tm;
+    const sf=r.surface??r['实测混样比表'];
+    const v=(sf===null||sf===undefined||sf===''||sf==='-')?null:parseFloat(String(sf).replace(/[^\d.]/g,''));
+    out.push({no,time:tm||lastT,surface:isNaN(v)?null:v,order:out.length});}return out;};
+  for(const r of norm(rows)){
+    const c=map.get(r.no);
+    if(!c){map.set(r.no,r);continue;}
+    const a=t2m(r.time),b=t2m(c.time);
+    if(a>b||(a===b&&r.order>c.order))map.set(r.no,r);
+  }
+  return [...map.values()].sort((a,b)=>a.no-b.no);
+}
+
+async function applyResult(rawRows,srcName){
+  const latest=latestByFurnace(rawRows).filter(r=>r.surface!==null);
+  if(!latest.length){showOcr((srcName||'识别')+'完成，但没有提取到任何实测比表数值。请检查图片是否清晰，或改用粘贴小微结果。',true);return;}
+  let filled=[],skipped=[],warns=[];
+  for(const r of latest){
+    const inp=tbody.querySelector(`input[data-no="${r.no}"][data-f="surface"]`);
+    if(!inp){skipped.push(r.no+'#');continue;}
+    inp.value=r.surface;
+    inp.dispatchEvent(new Event('input'));
+    if(r.surface>(readCfg().surfaceMax||10))warns.push(r.no+'#炉 比表 '+r.surface+' 超常规区间，已标红请复核');
+    filled.push(r.no+'#炉 → '+r.surface+(r.time?'（'+r.time+'）':''));
+  }
+  let msg=(srcName||'识别')+'完成：提取 '+latest.length+' 个炉号的最新比表，已按炉号顺序填入。\n';
+  msg+=filled.join('\n');
+  if(skipped.length)msg+='\n跳过（日报无此炉号）：'+skipped.join('、');
+  if(warns.length)msg+='\n⚠ 待复核：'+warns.join('；');
+  showOcr(msg,!!warns.length);
+}
+
+async function doOCR(file){
+  camBtn.disabled=true;
+  showOcr('图片处理中…');
+  try{
+    const b64=await compressImg(file,1600);
+    showOcr('AI 识别中…（首次使用请先在下方设置里填 Key）');
+    const data=await callVision(b64);
+    await applyResult(data.rows||[],'识别');
+  }catch(err){
+    showOcr('识别失败：'+err.message+'\n可改用下方「粘贴小微识别结果」，同样免费。',true);
+  }
+  camBtn.disabled=false;
+  camFile.value='';
+}
+
+/* ============ 上传 Excel（无需 Key） ============ */
+const xlsBtn=$('#btnXls'),xlsFile=$('#xlsFile');
+xlsBtn.onclick=()=>xlsFile.click();
+xlsFile.onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  xlsBtn.disabled=true;showOcr('读取 Excel 中…');
+  try{
+    if(/\.xls$/i.test(f.name))throw new Error('暂不支持老的 .xls 格式，请在 Excel/WPS 里"另存为 .xlsx"后再传。');
+    const rows=await XlsxLite.readXlsx(f);
+    const recs=XlsxLite.sheetToRecords(rows);
+    if(!recs.length)throw new Error('没读到数据行，请确认表里有"炉号"和"实测混样比表"列。');
+    await applyResult(recs,'Excel');
+  }catch(err){
+    showOcr('Excel 读取失败：'+err.message,true);
+  }
+  xlsBtn.disabled=false;xlsFile.value='';
+};
+
+/* ==================== 配置页逻辑 ==================== */
+const $cfg = s => document.querySelector('#pane-config ' + s);
+
+/* 服务商切换自动填地址/模型 */
+(function bindProvider(){
+  const sel = $cfg('#cfgProvider');
+  if (!sel) return;
+  sel.onchange = () => {
+    const p = PROVIDERS[sel.value];
+    if (p && sel.value !== 'custom') {
+      $cfg('#cfgBase').value = p.base;
+      $cfg('#cfgModel').value = p.model;
+    }
+  };
+})();
+
+/* 载入配置到表单 */
+function fillCfgForm() {
+  const c = readCfg();
+  if (!$cfg('#cfgProvider')) return;
+  $cfg('#cfgProvider').value = c.provider || 'zhipu';
+  $cfg('#cfgBase').value = c.base || '';
+  $cfg('#cfgModel').value = c.model || '';
+  $cfg('#cfgKey').value = c.key || '';
+  $cfg('#cfgTeam').value = c.team || '';
+  $cfg('#cfgSurfaceMax').value = c.surfaceMax || 10;
+  $cfg('#cfgFurnaces').value = (c.furnaces || []).join(',');
+  renderCfgCrew();
+  refreshCfgKeyState();
+  refreshDataStat();
+}
+function refreshCfgKeyState() {
+  const el = $cfg('#cfgKeyState');
+  if (!el) return;
+  const c = readCfg();
+  el.className = 'pill ' + (c.key ? 'on' : 'off');
+  el.textContent = c.key ? ('已配置 · ' + (PROVIDERS[c.provider] || {}).name + ' · 尾号 ' + c.key.slice(-4)) : '未配置';
+}
+
+/* 人员列表渲染 */
+function renderCfgCrew() {
+  const box = $cfg('#cfgCrewList');
+  if (!box) return;
+  const c = readCfg();
+  box.innerHTML = (c.crew || []).map((n, i) =>
+    '<span class="chip">' + n + '<i data-del="' + i + '">×</i></span>'
+  ).join('') || '<span style="color:#bbb;font-size:12px;">还没有人员，请在下方添加</span>';
+  box.querySelectorAll('[data-del]').forEach(el => {
+    el.onclick = () => {
+      const i = +el.dataset.del;
+      const cc = readCfg();
+      const name = cc.crew[i];
+      if (!confirm('删除人员「' + name + '」？\n（已保存的历史日志不受影响）')) return;
+      cc.crew.splice(i, 1);
+      STORE.set(STORE.CFG, cc);
+      fillCfgForm();
+      renderCrew();
+      toast('已删除 ' + name);
+    };
+  });
+}
+
+/* 保存识别接口 */
+$cfg('#cfgSave').onclick = () => {
+  const c = readCfg();
+  c.provider = $cfg('#cfgProvider').value;
+  c.base = $cfg('#cfgBase').value.trim();
+  c.model = $cfg('#cfgModel').value.trim();
+  c.key = $cfg('#cfgKey').value.trim();
+  if (c.key && !c.base) { toast('请填写接口地址'); return; }
+  if (c.key && !c.model) { toast('请填写模型名'); return; }
+  STORE.set(STORE.CFG, c);
+  refreshCfgKeyState();
+  refreshKeyState();
+  toast('✓ 已保存，日志页可直接使用');
+};
+
+/* 保存基础信息 */
+$cfg('#cfgSave2').onclick = () => {
+  const c = readCfg();
+  c.team = $cfg('#cfgTeam').value.trim();
+  const v = parseFloat($cfg('#cfgSurfaceMax').value);
+  c.surfaceMax = (isFinite(v) && v > 0) ? v : 10;
+  STORE.set(STORE.CFG, c);
+  toast('✓ 基础信息已保存');
+};
+
+/* 保存炉号 */
+$cfg('#cfgSave3').onclick = () => {
+  const raw = $cfg('#cfgFurnaces').value;
+  const arr = raw.split(/[,，\s]+/).map(s => parseInt(s)).filter(n => n > 0);
+  const uniq = [...new Set(arr)];
+  if (!uniq.length) { toast('请至少填一个炉号'); return; }
+  const c = readCfg();
+  c.furnaces = uniq;
+  STORE.set(STORE.CFG, c);
+  rebuildFurnaceTable();
+  toast('✓ 炉号已保存（' + uniq.length + ' 个）');
+};
+
+/* 添加人员 */
+$cfg('#cfgAddCrew').onclick = () => {
+  const inp = $cfg('#cfgNewCrew');
+  const name = inp.value.trim();
+  if (!name) { toast('请输入姓名'); return; }
+  const c = readCfg();
+  if (c.crew.includes(name)) { toast('已存在该人员'); return; }
+  c.crew.push(name);
+  STORE.set(STORE.CFG, c);
+  inp.value = '';
+  fillCfgForm();
+  renderCrew();
+  toast('✓ 已添加 ' + name);
+};
+
+/* 测试连通性 */
+$cfg('#cfgTest').onclick = async () => {
+  const btn = $cfg('#cfgTest');
+  const c = readCfg();
+  // 未保存时用表单里的值测
+  const base = $cfg('#cfgBase').value.trim() || c.base;
+  const model = $cfg('#cfgModel').value.trim() || c.model;
+  const key = $cfg('#cfgKey').value.trim() || c.key;
+  if (!key) { toast('请先填写 API Key'); return; }
+  if (!base || !model) { toast('请填写接口地址和模型名'); return; }
+  btn.disabled = true; btn.textContent = '测试中…';
+  try {
+    const r = await fetch(base, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+      body: JSON.stringify({ model, messages: [{ role: 'user', content: 'hi' }], max_tokens: 8 })
+    });
+    const t = await r.text();
+    if (r.ok) {
+      toast('✓ Key 可用，接口连通正常', 2600);
+    } else {
+      let hint = '';
+      if (r.status === 401) hint = 'Key 不正确或已失效';
+      else if (r.status === 403) hint = '无权限访问该模型';
+      else if (r.status === 429) hint = '调用太频繁，稍后再试';
+      else if (r.status === 404) hint = '接口地址不对';
+      toast('✗ 失败 ' + r.status + (hint ? '：' + hint : '') + '\n' + t.slice(0, 80), 4000);
+    }
+  } catch (e) {
+    toast('✗ 网络请求失败：' + e.message + '\n（检查网络或接口地址）', 4000);
+  }
+  btn.disabled = false; btn.textContent = '测试连通';
+};
+
+/* ==================== 数据备份 ==================== */
+function refreshDataStat() {
+  const el = $cfg('#cfgDataStat');
+  if (!el) return;
+  const keys = STORE.keys('dr_log_');
+  el.textContent = keys.length ? (keys.length + ' 条（按日期+班次）') : '暂无数据';
+}
+
+$cfg('#cfgExport').onclick = () => {
+  const data = { _type: 'daily-report-backup', _ver: 1, _time: new Date().toISOString(), cfg: readCfg(), logs: {} };
+  STORE.keys('dr_log_').forEach(k => { data.logs[k] = STORE.get(k, null); });
+  // 兼容旧 key
+  ['rep_cfg_kKey','rep_cfg_kBase','rep_cfg_kModel','log_crew_sel','lastPane'].forEach(k => {
+    const v = localStorage.getItem(k);
+    if (v) data.logs['__legacy_' + k] = v;
+  });
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  const d = new Date();
+  a.href = URL.createObjectURL(blob);
+  a.download = '日报备份_' + d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0') + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+  toast('已导出备份文件', 2200);
+};
+
+$cfg('#cfgImportBtn').onclick = () => $cfg('#cfgImportFile').click();
+$cfg('#cfgImportFile').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const fr = new FileReader();
+  fr.onload = () => {
+    try {
+      const data = JSON.parse(fr.result);
+      if (!data || data._type !== 'daily-report-backup') throw new Error('不是本系统的备份文件');
+      if (!confirm('导入将覆盖当前配置和同日期数据，确定继续？')) return;
+      if (data.cfg) STORE.set(STORE.CFG, Object.assign({}, DEFAULT_CFG, data.cfg));
+      Object.keys(data.logs || {}).forEach(k => {
+        if (k.startsWith('dr_log_')) STORE.set(k, data.logs[k]);
+      });
+      readCfg();
+      fillCfgForm();
+      renderCrew();
+      rebuildFurnaceTable();
+      renderAll();
+      refreshKeyState();
+      toast('✓ 已恢复 ' + Object.keys(data.logs || {}).length + ' 项数据', 2500);
+    } catch (err) {
+      toast('导入失败：' + err.message, 3000);
+    }
+  };
+  fr.readAsText(f);
+  e.target.value = '';
+};
+
+/* 小微粘贴兜底 */
+$('#orLink').onclick=()=>{const p=$('#orPaste');p.style.display=p.style.display==='none'?'block':'none';};
+$('#orGo').onclick=()=>{
+  const rows=parsePasteText($('#orText').value);
+  if(!rows.length){showOcr('未解析到数据，请确认粘贴的是小微回复（如“1炉:3.1”格式）。',true);return;}
+  applyResult(rows,'解析');
+};
+
+/* ============ 左侧菜单（details 纯 CSS 展开，JS 只管切页） ============ */
+const navWrap=document.getElementById('navWrap'),logBar=document.getElementById('logBar');
+function closeDrawer(){ if(navWrap) navWrap.open=false; }
+function openDrawer(){ if(navWrap) navWrap.open=true; }
+
+document.querySelectorAll('.ditem').forEach(it=>{
+  it.addEventListener('click',e=>{
+    e.preventDefault();
+    const pane=it.dataset.pane;
+    document.querySelectorAll('.ditem').forEach(x=>x.classList.toggle('on',x===it));
+    document.querySelectorAll('.pane').forEach(pg=>pg.classList.toggle('on',pg.id==='pane-'+pane));
+    if(logBar)logBar.style.display=(pane==='log')?'flex':'none';
+    if(pane==='config'){readCfg();fillCfgForm();}
+    if(pane==='log'){renderAll();}
+    closeDrawer();
+    window.scrollTo(0,0);
+    STORE.set('dr_lastPane',pane);
+  },false);
+});
+// 点击遮罩区域（菜单外部）收起
+document.addEventListener('click',e=>{
+  if(navWrap&&navWrap.open&&!navWrap.contains(e.target))closeDrawer();
+},false);
+// 恢复上次所在页
+(function restorePane(){
+  const p=STORE.get('dr_lastPane','log');
+  if(p&&p!=='log'){
+    const it=document.querySelector(`.ditem[data-pane="${p}"]`);
+    if(it)it.click();
+  }
+})();
+
+/* ==================== 启动 ==================== */
+(function boot(){
+  if(!STORE.ok){
+    toast('当前浏览器限制本地存储（可能是无痕模式或 file:// 打开），数据可能无法保存。建议部署到网址后用浏览器打开。', 5000);
+  }
+  rebuildFurnaceTable();
+  sel = loadSel();
+  renderCrew();
+  fillCfgForm();
+  refreshKeyState();
+  renderAll();
+})();
+</script>
+</body>
+</html>

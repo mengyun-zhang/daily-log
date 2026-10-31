@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="配置">
+<meta name="theme-color" content="#1a5fb4">
+<title>配置 · API Key</title>
+<style>
+:root{--blue:#1a5fb4;--bg:#f5f6f7;--line:#e3e8ef;--ok:#0a7a2f;--warn:#c0392b;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;background:var(--bg);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:#222;font-size:15px;}
+.wrap{max-width:520px;margin:0 auto;padding:16px 12px 100px;}
+.card{background:#fff;border-radius:10px;padding:16px 14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+h1{font-size:20px;margin:0 0 4px;color:#111;}
+.sub{font-size:12px;color:#999;margin-bottom:14px;}
+.sec{font-size:14px;font-weight:600;color:var(--blue);border-left:3px solid var(--blue);padding-left:8px;margin:0 0 12px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:13px;color:#555;margin-bottom:6px;font-weight:500;}
+.field label .req{color:var(--warn);margin-left:2px;}
+.field input,.field select{width:100%;border:1px solid var(--line);border-radius:9px;padding:12px 12px;font-size:14px;background:#fafbfc;color:#222;font-family:inherit;}
+.field input:focus,.field select:focus{outline:0;border-color:var(--blue);background:#fff;box-shadow:0 0 0 3px rgba(26,95,180,.08);}
+.field input.err{border-color:var(--warn);background:#fffafa;}
+.field .tip{font-size:11px;color:#9aa5b1;margin-top:5px;line-height:1.6;}
+.pwbox{position:relative;}
+.pwbox input{padding-right:60px;}
+.pwbox .eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:transparent;color:#8a94a3;font-size:12px;padding:8px 10px;cursor:pointer;}
+.status{display:flex;align-items:center;gap:8px;padding:11px 13px;border-radius:9px;font-size:13px;margin-bottom:14px;}
+.status.ok{background:#eaf7ee;color:var(--ok);border:1px solid #bfe3ca;}
+.status.no{background:#fff8e6;color:#8a6100;border:1px solid #f0dfae;}
+.status.err{background:#fff0f0;color:var(--warn);border:1px solid #f3c6c6;}
+.status .dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0;}
+.actions{display:flex;gap:10px;margin-top:6px;}
+.actions button{flex:1;border:0;border-radius:10px;padding:14px 8px;font-size:15px;font-weight:600;cursor:pointer;transition:opacity .15s;}
+.actions button:active{opacity:.8;}
+.actions button:disabled{opacity:.5;}
+.btn-pri{background:var(--blue);color:#fff;}
+.btn-sec{background:#eef2f7;color:#333;}
+.btn-test{background:#eef2f7;color:var(--blue);}
+.guide{background:#f7f9fc;border-radius:9px;padding:12px 14px;font-size:12px;color:#6b7684;line-height:1.9;}
+.guide b{color:#3b4552;display:block;margin-bottom:4px;font-size:13px;}
+.guide ol{margin:0;padding-left:18px;}
+.guide code{background:#e8edf3;border-radius:3px;padding:1px 5px;font-size:11px;font-family:ui-monospace,monospace;color:#4a5563;}
+.guide a{color:var(--blue);text-decoration:none;font-weight:600;}
+.toast{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.85);color:#fff;padding:14px 24px;border-radius:11px;font-size:14px;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;max-width:82%;text-align:center;line-height:1.7;white-space:pre-wrap;}
+.toast.on{opacity:1;}
+.backbtn{display:inline-flex;align-items:center;gap:5px;color:var(--blue);font-size:14px;text-decoration:none;margin-bottom:12px;font-weight:500;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="backbtn" href="index.html">‹ 返回日志</a>
+  <h1>配置 API Key</h1>
+  <div class="sub">拍照识别取样表需要用到 AI 接口，填一次保存即可，之后自动读取</div>
+
+  <div class="card">
+    <div class="sec">识别接口</div>
+
+    <div class="field">
+      <label>服务商</label>
+      <select id="provider">
+        <option value="zhipu">智谱 GLM-4V-Flash（永久免费）</option>
+        <option value="silicon">硅基流动 SiliconFlow</option>
+        <option value="custom">自定义接口</option>
+      </select>
+      <div class="tip" id="providerTip">推荐智谱：视觉模型 glm-4v-flash 完全免费且不限次数</div>
+    </div>
+
+    <div class="field">
+      <label>接口地址 <span class="req">*</span></label>
+      <input id="base" placeholder="https://..." autocomplete="off" spellcheck="false">
+    </div>
+
+    <div class="field">
+      <label>模型名称 <span class="req">*</span></label>
+      <input id="model" placeholder="glm-4v-flash" autocomplete="off" spellcheck="false">
+    </div>
+
+    <div class="field">
+      <label>API Key <span class="req">*</span></label>
+      <div class="pwbox">
+        <input id="key" type="password" placeholder="粘贴你的 Key" autocomplete="off" spellcheck="false">
+        <button class="eye" id="eye" type="button">显示</button>
+      </div>
+      <div class="tip">Key 只保存在这台手机浏览器里，不会上传到任何服务器</div>
+    </div>
+
+    <div class="status no" id="status">
+      <span class="dot"></span><span id="statusText">未配置</span>
+    </div>
+
+    <div class="actions">
+      <button class="btn-test" id="btnTest">测试连通</button>
+      <button class="btn-pri" id="btnSave">保存</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec">从哪里获取 Key</div>
+    <div class="guide">
+      <b>智谱（推荐 · 永久免费不限次）</b>
+      <ol>
+        <li>手机或电脑浏览器打开 <a href="https://open.bigmodel.cn" target="_blank" rel="noopener">open.bigmodel.cn</a></li>
+        <li>右上角注册（手机号即可），完成后登录</li>
+        <li>进入「控制台」→ 左侧菜单找「API Keys」</li>
+        <li>点「创建 API Key」，名字随便填，确认</li>
+        <li>复制生成的一串字符（形如 <code>xxxxx.xxxxx</code>），粘贴到上面输入框</li>
+      </ol>
+      <div style="margin-top:8px;color:#9aa5b1">注意：Key 只显示一次，建议同时存到微信收藏。</div>
+    </div>
+    <div class="guide" style="margin-top:10px">
+      <b>硅基流动（备用 · 注册送 14 元）</b>
+      <ol>
+        <li>打开 <a href="https://cloud.siliconflow.cn" target="_blank" rel="noopener">cloud.siliconflow.cn</a> 注册</li>
+        <li>控制台 → API 密钥 → 新建</li>
+        <li>模型名填 <code>Qwen/Qwen2.5-VL-32B-Instruct</code></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec">当前保存的内容</div>
+    <div id="saved" style="font-size:13px;color:#666;line-height:1.9;">读取中…</div>
+    <div class="actions" style="margin-top:14px">
+      <button class="btn-sec" id="btnClear">清除配置</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== 存储层（与日志页共用同一份） ===================== */
+const CFG_KEY = 'dr_cfg_v1';
+const PROVIDERS = {
+  zhipu:   { name:'智谱 GLM-4V-Flash', base:'https://open.bigmodel.cn/api/paas/v4/chat/completions', model:'glm-4v-flash',
+             tip:'推荐智谱：视觉模型 glm-4v-flash 完全免费且不限次数' },
+  silicon: { name:'硅基流动 SiliconFlow', base:'https://api.siliconflow.cn/v1/chat/completions', model:'Qwen/Qwen2.5-VL-32B-Instruct',
+             tip:'硅基流动：注册送 14 元额度，识别准确率更高' },
+  custom:  { name:'自定义接口', base:'', model:'', tip:'填兼容 OpenAI 格式的视觉模型接口地址' }
+};
+
+const $ = s => document.querySelector(s);
+let memFallback = {};
+const LS_OK = (function(){ try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return true; }catch(e){ return false; } })();
+
+function getCfg(){
+  if(!LS_OK) return Object.assign({}, memFallback);
+  try{
+    const raw = localStorage.getItem(CFG_KEY);
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){ return {}; }
+}
+function setCfg(obj){
+  memFallback = Object.assign({}, obj);
+  if(!LS_OK){ toast('当前浏览器禁止本地存储，配置无法保存\n请用 Chrome/Safari 浏览器打开'); return false; }
+  try{ localStorage.setItem(CFG_KEY, JSON.stringify(obj)); return true; }
+  catch(e){ toast('保存失败：浏览器存储已满'); return false; }
+}
+
+function toast(msg, ms){
+  const t = $('#toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>t.classList.remove('on'), ms||2000);
+}
+
+/* ===================== 表单逻辑 ===================== */
+function setStatus(type, text){
+  const el = $('#status');
+  el.className = 'status ' + type;
+  $('#statusText').textContent = text;
+}
+
+function applyProvider(p, keepValues){
+  const conf = PROVIDERS[p] || PROVIDERS.zhipu;
+  $('#providerTip').textContent = conf.tip;
+  if(!keepValues){
+    $('#base').value = conf.base;
+    $('#model').value = conf.model;
+  }
+}
+
+$('#provider').onchange = () => {
+  applyProvider($('#provider').value, false);
+};
+
+/* 密码显隐 */
+$('#eye').onclick = () => {
+  const inp = $('#key');
+  const isPw = inp.type === 'password';
+  inp.type = isPw ? 'text' : 'password';
+  $('#eye').textContent = isPw ? '隐藏' : '显示';
+};
+
+/* 载入已保存的配置 */
+function loadForm(){
+  const c = getCfg();
+  if(!c || !c.key){
+    // 兼容旧版本 key（rep_cfg_kKey）
+    let legacy = '';
+    try{ legacy = localStorage.getItem('rep_cfg_kKey') || ''; }catch(e){}
+    if(legacy){
+      $('#key').value = legacy.trim();
+      $('#provider').value = 'zhipu';
+      applyProvider('zhipu', false);
+      setStatus('no', '检测到旧版 Key，请点「保存」完成迁移');
+    }else{
+      $('#provider').value = 'zhipu';
+      applyProvider('zhipu', false);
+      setStatus('no', '未配置');
+    }
+    renderSaved({});
+    return;
+  }
+  $('#provider').value = c.provider || 'zhipu';
+  $('#base').value = c.base || PROVIDERS[c.provider]?.base || '';
+  $('#model').value = c.model || PROVIDERS[c.provider]?.model || '';
+  $('#key').value = c.key || '';
+  applyProvider(c.provider || 'zhipu', true);
+  setStatus('ok', '已配置 · ' + (PROVIDERS[c.provider]?.name || '自定义') + ' · 尾号 ' + String(c.key).slice(-4));
+  renderSaved(c);
+}
+
+function renderSaved(c){
+  const box = $('#saved');
+  if(!c.key){
+    box.innerHTML = '<span style="color:#c0392b">配置为空，拍照识别不可用</span>';
+    return;
+  }
+  const mask = v => {
+    v = String(v||'');
+    if(v.length <= 8) return v;
+    return v.slice(0,4) + '****' + v.slice(-4);
+  };
+  box.innerHTML =
+    '<div>服务商：<b>' + (PROVIDERS[c.provider]?.name || '自定义') + '</b></div>' +
+    '<div>模型：<span style="font-family:monospace;font-size:12px">' + (c.model || '-') + '</span></div>' +
+    '<div>Key：<span style="font-family:monospace;font-size:12px">' + mask(c.key) + '</span></div>' +
+    '<div>保存时间：' + (c.savedAt ? new Date(c.savedAt).toLocaleString('zh-CN') : '—') + '</div>';
+}
+
+/* 保存 */
+$('#btnSave').onclick = () => {
+  const provider = $('#provider').value;
+  const base = $('#base').value.trim();
+  const model = $('#model').value.trim();
+  const key = $('#key').value.trim();
+
+  // 校验
+  ['#base','#model','#key'].forEach(s => $(s).classList.remove('err'));
+  if(!base){ $('#base').classList.add('err'); toast('请填写接口地址'); return; }
+  if(!/^https?:\/\//i.test(base)){ $('#base').classList.add('err'); toast('接口地址需以 http:// 或 https:// 开头'); return; }
+  if(!model){ $('#model').classList.add('err'); toast('请填写模型名称'); return; }
+  if(!key){ $('#key').classList.add('err'); toast('请粘贴 API Key'); return; }
+  if(/\s/.test(key)){ $('#key').classList.add('err'); toast('Key 中不能有空格，请重新复制'); return; }
+
+  const old = getCfg();
+  const cfg = Object.assign({}, old, {
+    provider, base, model, key,
+    savedAt: new Date().toISOString()
+  });
+  if(setCfg(cfg)){
+    setStatus('ok', '已保存 · ' + (PROVIDERS[provider]?.name || '自定义') + ' · 尾号 ' + key.slice(-4));
+    renderSaved(cfg);
+    toast('✓ 已保存\n日志页可直接使用');
+  }
+};
+
+/* 测试连通 */
+$('#btnTest').onclick = async () => {
+  const base = $('#base').value.trim();
+  const model = $('#model').value.trim();
+  const key = $('#key').value.trim();
+  if(!base || !model || !key){ toast('请先填写接口地址、模型名称和 Key'); return; }
+
+  const btn = $('#btnTest');
+  btn.disabled = true; btn.textContent = '测试中…';
+  setStatus('no', '正在连接接口…');
+  const t0 = Date.now();
+  try{
+    const res = await fetch(base, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + key },
+      body: JSON.stringify({
+        model,
+        messages:[{ role:'user', content:'hi' }],
+        max_tokens: 8
+      })
+    });
+    const txt = await res.text();
+    const ms = Date.now() - t0;
+    if(res.ok){
+      setStatus('ok', '✓ 连接成功（' + ms + 'ms）· Key 可用');
+      toast('✓ Key 可用，可以拍照识别了', 2200);
+    }else{
+      let hint = '';
+      if(res.status === 401) hint = 'Key 不正确或已失效';
+      else if(res.status === 403) hint = '无权限访问该模型，检查模型名';
+      else if(res.status === 404) hint = '接口地址不对';
+      else if(res.status === 429) hint = '调用过于频繁，稍后再试';
+      else if(res.status >= 500) hint = '服务端异常，稍后再试';
+      setStatus('err', '✗ 失败 ' + res.status + (hint ? '：' + hint : ''));
+      toast('✗ 失败 ' + res.status + (hint ? '\n' + hint : '') + '\n' + txt.slice(0,100), 4500);
+    }
+  }catch(e){
+    setStatus('err', '✗ 网络请求失败');
+    toast('✗ 网络请求失败：' + e.message +
+      '\n\n可能原因：\n①手机网络无法访问该接口域名\n②接口地址填写错误\n③页面在微信内打开被限制，请用浏览器打开', 5000);
+  }
+  btn.disabled = false; btn.textContent = '测试连通';
+};
+
+/* 清除配置 */
+$('#btnClear').onclick = () => {
+  if(!confirm('确定清除已保存的 API Key？\n清除后拍照识别将不可用。')) return;
+  if(LS_OK){
+    try{ localStorage.removeItem(CFG_KEY); localStorage.removeItem('rep_cfg_kKey'); }catch(e){}
+  }
+  memFallback = {};
+  $('#key').value = '';
+  setStatus('no', '未配置');
+  renderSaved({});
+  toast('已清除配置');
+};
+
+/* 启动 */
+applyProvider('zhipu', false);
+loadForm();
+
+/* 环境检测：file:// 或受限环境提示 */
+(function envCheck(){
+  const warn = [];
+  if(location.protocol === 'file:') warn.push('当前是本地文件方式打开（file://），「测试连通」和「拍照识别」会被浏览器拦截，属正常现象。请把页面部署到 GitHub Pages 后用 https 网址打开，那些功能才能用。「保存」不受影响。');
+  if(/MicroMessenger/i.test(navigator.userAgent)) warn.push('当前在微信内置浏览器中打开，网络请求可能被限制。建议点右上角「…」→「在浏览器中打开」。');
+  if(!LS_OK) warn.push('当前浏览器禁止本地存储（无痕模式？），配置将无法保存。');
+  if(warn.length){
+    const el = document.createElement('div');
+    el.style.cssText = 'background:#fff8e6;border:1px solid #f0dfae;color:#8a6100;border-radius:10px;padding:12px 14px;font-size:12px;line-height:1.8;margin-bottom:12px;';
+    el.innerHTML = '<b style="display:block;margin-bottom:4px;">⚠ 环境提示</b>' + warn.join('<br>');
+    const first = document.querySelector('.card');
+    first.parentNode.insertBefore(el, first);
+  }
+})();
+</script>
+</body>
+</html>
