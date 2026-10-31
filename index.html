@@ -703,9 +703,9 @@ $('#btnClear').onclick=()=>{
   collect();
 };
 const OCR_PROMPT=`你是精确的表格识别引擎。图片是一张中文"取样记录表"，列含：炉号/名称/批次/取样时间/计划比表m²/g/实测混样比表m²/g/设定炉温℃。
-任务：逐行如实转录，输出严格 JSON，不要解释、不要 markdown。
-格式：{"rows":[{"no":8,"name":"5通广通刀片标素混","batch":"205","time":"0:00","surface":4.1,"temp":1195}]}
-规则：1.一行一个对象，保持原行顺序与行数，合并单元格续行炉号沿用上一行。2.实测混样比表为空则 surface 填 null。3.只转录"实测混样比表"列，不要抄成"计划比表"（计划通常写 3-4.5 区间）。4.数字保留原样不四舍五入。5.模糊无法确定填 null，不要猜。`;
+任务：逐行如实转录，只输出紧凑单行 JSON，无空格无换行无 markdown。
+格式：{"rows":[{"no":8,"time":"0:00","surface":4.1}]}
+规则：1.每个对象只保留 no(炉号数字)/time(取样时间)/surface(实测混样比表数值) 三个字段。2.保持原行顺序与行数，合并单元格续行炉号沿用上一行。3.实测混样比表为空则 surface 填 null。4.只转录"实测混样比表"列，不要抄成"计划比表"（计划通常是 3-4.5 或 23-29 这种区间格式）。5.数字保留原样不四舍五入。6.模糊无法确定填 null，不要猜。`;
 
 /* ================= 统一存储层（带容错与备份） ================= */
 const STORE = {
@@ -755,9 +755,9 @@ const PROVIDERS = {
   custom:  { name:'自定义', base:'', model:'' }
 };
 const DEFAULT_CFG = {
-  provider: 'zhipu',
-  base: PROVIDERS.zhipu.base,
-  model: PROVIDERS.zhipu.model,
+  provider: 'silicon',
+  base: PROVIDERS.silicon.base,
+  model: PROVIDERS.silicon.model,
   key: '',
   team: '',
   surfaceMax: 10,
@@ -842,42 +842,65 @@ function compressImg(file,maxSide){
   });
 }
 
+function extractJSON(txt){
+  let v=null;
+  try{v=JSON.parse(txt);}catch(e){}
+  if(!v){
+    const first=(txt.replace(/^\s+/,'')[0])||'{';
+    const chs=first==='['?['[','{']:['{','['];
+    for(const ch of chs){
+      const st=txt.indexOf(ch);
+      if(st<0)continue;
+      let depth=0,inStr=false,esc=false;
+      for(let i=st;i<txt.length;i++){
+        const c=txt[i];
+        if(inStr){ if(esc)esc=false; else if(c==='\\')esc=true; else if(c==='"')inStr=false; continue; }
+        if(c==='"')inStr=true;
+        else if(c===ch)depth++;
+        else if((ch==='{'&&c==='}')||(ch==='['&&c===']')){depth--; if(!depth){ try{v=JSON.parse(txt.slice(st,i+1));}catch(e){} if(v)break; }}
+      }
+      if(v)break;
+    }
+  }
+  if(Array.isArray(v))v={rows:v};
+  return (v&&typeof v==='object')?v:null;
+}
+
 async function callVision(b64){
   const c = readCfg();
-  const base = c.base || PROVIDERS.zhipu.base;
-  const model = c.model || PROVIDERS.zhipu.model;
+  const base = c.base || PROVIDERS.silicon.base;
+  const model = c.model || PROVIDERS.silicon.model;
   const key = c.key || '';
   if(!key){
     throw new Error('没有配置 API Key。请到 config.html 填写并保存 Key。');
   }
-  const body=JSON.stringify({model,temperature:0,max_tokens:4096,messages:[
+  const body=JSON.stringify({model,temperature:0,max_tokens:1024,messages:[
     {role:'system',content:OCR_PROMPT},
     {role:'user',content:[{type:'text',text:'识别这张取样记录表，按要求输出 JSON。'},{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}}]}]});
   const headers={'Content-Type':'application/json','Authorization':'Bearer '+key};
-  // 多通道依次尝试：直连 → CORS 中转
-  const urls=[base, 'https://corsproxy.io/?url='+encodeURIComponent(base)];
-  let lastErr=null;
+  // HTTP 报错立即抛出真实原因；只有网络异常才换通道
+  const urls=[base,'https://corsproxy.io/?url='+encodeURIComponent(base)];
+  let lastNetErr=null;
   for(let i=0;i<urls.length;i++){
     try{
       const res=await fetch(urls[i],{method:'POST',headers,body});
       const raw=await res.text();
       if(!res.ok){
-        const err=new Error('HTTP '+res.status+'：'+raw.slice(0,150));
-        err.status=res.status;
-        if(res.status===401||res.status===403||res.status===404||res.status===429) throw err; // 配置类错误不重试
-        lastErr=err; continue;
+        let detail=raw.slice(0,200);
+        try{const je=JSON.parse(raw);if(je.error&&je.error.message)detail=je.error.message+(je.error.code?'（code '+je.error.code+'）':'');}catch(e){}
+        throw new Error('HTTP '+res.status+'：'+detail);
       }
       const j=JSON.parse(raw);
-      let txt=(j.choices[0].message.content||'').replace(/```json|```/g,'').trim();
-      const m=txt.match(/\{[\s\S]*\}/);
-      if(!m)throw new Error('返回不是JSON：'+txt.slice(0,150));
-      return JSON.parse(m[0]);
+      let txt=(j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content||'').replace(/```json|```/g,'').trim();
+      const data=extractJSON(txt);
+      if(!data||!Array.isArray(data.rows)||!data.rows.length)throw new Error('返回内容无法解析成表格：'+txt.slice(0,120));
+      return data;
     }catch(e){
-      if(e.status===401||e.status===403||e.status===404||e.status===429) throw e;
-      lastErr=e; // 网络错误继续下一通道
+      if(e.message&&e.message.startsWith('HTTP'))throw e;      // 服务端明确报错，不重试
+      lastNetErr=e;                                             // 网络异常，试下一通道
     }
   }
-  throw lastErr||new Error('网络请求失败');
+  throw new Error('网络请求失败（直连与中转通道均不通）：'+(lastNetErr?lastNetErr.message:''));
 }
 
 const t2m=t=>{const m=String(t||'').trim().match(/^(\d{1,2})[:：点](\d{2})?$/);return m?(+m[1])*60+(+m[2]||0):-1;};
@@ -913,7 +936,7 @@ function latestByFurnace(rows){
 
 async function applyResult(rawRows,srcName){
   const latest=latestByFurnace(rawRows).filter(r=>r.surface!==null);
-  if(!latest.length){showOcr((srcName||'识别')+'完成，但没有提取到任何实测比表数值。请检查图片是否清晰，或改用粘贴小微结果。',true);return;}
+  if(!latest.length){showOcr((srcName||'识别')+'完成，但没有提取到任何实测比表数值。请检查图片是否清晰，或改用 AI 识别重试。',true);return;}
   let filled=[],skipped=[],warns=[];
   for(const r of latest){
     const inp=tbody.querySelector(`input[data-no="${r.no}"][data-f="surface"]`);
@@ -930,16 +953,114 @@ async function applyResult(rawRows,srcName){
   showOcr(msg,!!warns.length);
 }
 
+/* ============ 本地 OCR（Tesseract.js，免 Key 免联网） ============ */
+let _tessLoading=null;
+function loadTessLib(){
+  if(window.Tesseract)return Promise.resolve();
+  if(_tessLoading)return _tessLoading;
+  const urls=[
+    'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js',
+    'https://unpkg.com/tesseract.js@5/dist/tesseract.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js',
+    'https://cdn.staticfile.net/tesseract.js/5.1.1/tesseract.min.js'
+  ];
+  _tessLoading=new Promise((res,rej)=>{
+    let i=0;
+    const tryNext=()=>{
+      if(i>=urls.length){_tessLoading=null;rej(new Error('识别引擎脚本加载失败（CDN 均不可达）'));return;}
+      const sc=document.createElement('script');
+      sc.src=urls[i++];
+      sc.onload=res;
+      sc.onerror=tryNext;
+      document.head.appendChild(sc);
+    };
+    tryNext();
+  });
+  return _tessLoading;
+}
+let _worker=null,_workerBusy=false;
+async function getWorker(onStatus){
+  if(_worker)return _worker;
+  await loadTessLib();
+  onStatus('首次加载中文识别模型（约 1MB，之后不再下载）…');
+  _worker=await Tesseract.createWorker(['chi_sim','eng'],1,{
+    logger:m=>{ if(m.status==='recognizing text'&&onStatus)onStatus('本地识别中… '+Math.round((m.progress||0)*100)+'%'); }
+  });
+  await _worker.setParameters({tessedit_pageseg_mode:'6'});
+  return _worker;
+}
+function collectWords(data){
+  const out=[];
+  const walk=b=>{
+    if(!b)return;
+    if(b.words&&b.words.length){b.words.forEach(w=>out.push(w));return;}
+    if(b.lines)b.lines.forEach(walk);
+    else if(b.paragraphs)b.paragraphs.forEach(walk);
+    else if(b.blocks)b.blocks.forEach(walk);
+  };
+  if(data.blocks)data.blocks.forEach(walk);
+  if(!out.length&&data.words)data.words.forEach(w=>out.push(w));
+  return out;
+}
+function parseBiaobiWords(words){
+  const W=words.map(w=>({t:String(w.text||'').replace(/\s+/g,''),x0:w.bbox.x0,x1:w.bbox.x1,y0:w.bbox.y0,y1:w.bbox.y1})).filter(w=>w.t);
+  // 1. 找「比表」列头
+  const hd=W.find(w=>/比表/.test(w.t)&&!/面积/.test(w.t))||W.find(w=>/比表/.test(w.t));
+  if(!hd)return{err:'no_header'};
+  const colLo=hd.x0-80,colHi=hd.x1+80,headBottom=hd.y1;
+  // 2. 找炉号词：1#、10#、2号、12号炉、1井
+  const fs=[];
+  for(const w of W){
+    const m=w.t.match(/^(\d{1,2})\s*[#号井※]/);
+    if(m){const n=+m[1];if(n>=1&&n<=30)fs.push({no:n,y:w.y0});}
+  }
+  if(!fs.length)return{err:'no_furnace'};
+  fs.sort((a,b)=>a.y-b.y);
+  // 3. 比表列里的数值（表头以下）
+  const vals=W.filter(w=>{
+    if(w.y1<headBottom+4)return false;
+    if(!/^\d{1,3}(\.\d+)?$/.test(w.t))return false;
+    const cx=(w.x0+w.x1)/2;
+    return cx>=colLo&&cx<=colHi;
+  });
+  if(!vals.length)return{err:'no_value'};
+  // 4. 每个数值归属其上方最近的炉号（合并单元格沿用上一炉号）
+  const rows=[];let lastNo=fs[0].no;
+  for(const v of vals.sort((a,b)=>a.y0-b.y0)){
+    for(const f of fs){if(f.y<=v.y0)lastNo=f.no;else break;}
+    rows.push({no:lastNo,time:'',surface:parseFloat(v.t)});
+  }
+  return{rows};
+}
+
 async function doOCR(file){
   camBtn.disabled=true;
-  showOcr('图片处理中…');
+  const c=readCfg();
+  showOcr(c.key?'AI 识别中…（约 10~30 秒）':'正在启动本地识别引擎…（未配置 Key，走本地免联网识别）');
+  let aiErr=null;
+  if(c.key){
+    try{
+      const b64=await compressImg(file,1600);
+      const data=await callVision(b64);
+      await applyResult(data.rows||[],'AI识别');
+      camBtn.disabled=false;camFile.value='';
+      return;
+    }catch(e){ aiErr=e; showOcr('AI 识别失败：'+e.message+'\n改用本地识别引擎重试…',true); }
+  }
   try{
-    const b64=await compressImg(file,1600);
-    showOcr('AI 识别中…（首次使用请先在下方设置里填 Key）');
-    const data=await callVision(b64);
-    await applyResult(data.rows||[],'识别');
+    const worker=await getWorker(msg=>showOcr(msg));
+    const {data}=await worker.recognize(file,{},{text:true,blocks:true});
+    const words=collectWords(data);
+    if(!words.length)throw new Error('图片中没有识别到文字');
+    const r=parseBiaobiWords(words);
+    if(r.err==='no_header')throw new Error('没找到「比表」列头，请让表头完整入镜重拍');
+    if(r.err==='no_furnace')throw new Error('没认出炉号（如 1#、10#）');
+    if(r.err==='no_value')throw new Error('比表列下没识别到数值');
+    await applyResult(r.rows,'本地识别');
   }catch(err){
-    showOcr('识别失败：'+err.message+'\n可改用下方「粘贴小微识别结果」，同样免费。',true);
+    let msg=(aiErr?('AI：'+aiErr.message+'\n'):'')+'本地识别也失败：'+err.message;
+    if(!c.key)msg+='\n建议在 config.html 配置 Key 后用 AI 识别（准确率高）。';
+    showOcr(msg,true);
   }
   camBtn.disabled=false;
   camFile.value='';

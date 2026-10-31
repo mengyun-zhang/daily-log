@@ -60,11 +60,11 @@ h1{font-size:20px;margin:0 0 4px;color:#111;}
     <div class="field">
       <label>服务商</label>
       <select id="provider">
-        <option value="zhipu">智谱 GLM-4V-Flash（永久免费）</option>
-        <option value="silicon">硅基流动 SiliconFlow</option>
+        <option value="silicon">硅基流动 SiliconFlow（推荐 · 手机直连可用）</option>
+        <option value="zhipu">智谱 GLM-4V-Flash（免费但手机可能连不上）</option>
         <option value="custom">自定义接口</option>
       </select>
-      <div class="tip" id="providerTip">推荐智谱：视觉模型 glm-4v-flash 完全免费且不限次数</div>
+      <div class="tip" id="providerTip">推荐硅基流动：官方接口支持浏览器直连，手机上稳定可用</div>
     </div>
 
     <div class="field">
@@ -99,23 +99,23 @@ h1{font-size:20px;margin:0 0 4px;color:#111;}
   <div class="card">
     <div class="sec">从哪里获取 Key</div>
     <div class="guide">
-      <b>智谱（推荐 · 永久免费不限次）</b>
+      <b>硅基流动（推荐 · 手机直连稳定）</b>
       <ol>
-        <li>手机或电脑浏览器打开 <a href="https://open.bigmodel.cn" target="_blank" rel="noopener">open.bigmodel.cn</a></li>
-        <li>右上角注册（手机号即可），完成后登录</li>
+        <li>打开 <a href="https://cloud.siliconflow.cn" target="_blank" rel="noopener">cloud.siliconflow.cn</a> 注册（手机号或微信，送额度）</li>
+        <li>左侧菜单「API密钥」→「新建API密钥」→ 复制</li>
+        <li>上方服务商选「硅基流动」，粘贴 Key，保存</li>
+      </ol>
+      <p class="tip">实测：智谱接口不允许网页跨域调用（浏览器直连被拦截），公共中转不稳定。硅基流动官方支持跨域直连，在 GitHub Pages 手机上可稳定识别。</p>
+      <details>
+      <summary><b>智谱（免费但不推荐 · 手机常连不上）</b></summary>
+      <div style="height:8px"></div>
+      <ol>
+        <li>打开 <a href="https://open.bigmodel.cn" target="_blank" rel="noopener">open.bigmodel.cn</a> 注册</li>
         <li>进入「控制台」→ 左侧菜单找「API Keys」</li>
-        <li>点「创建 API Key」，名字随便填，确认</li>
-        <li>复制生成的一串字符（形如 <code>xxxxx.xxxxx</code>），粘贴到上面输入框</li>
+        <li>模型名填 <code>glm-4v-flash</code>（免费）</li>
+        <li>注意：智谱接口不支持网页跨域直连，在手机浏览器里识别大概率报"网络请求失败"，建议优先用硅基流动</li>
       </ol>
-      <div style="margin-top:8px;color:#9aa5b1">注意：Key 只显示一次，建议同时存到微信收藏。</div>
-    </div>
-    <div class="guide" style="margin-top:10px">
-      <b>硅基流动（备用 · 注册送 14 元）</b>
-      <ol>
-        <li>打开 <a href="https://cloud.siliconflow.cn" target="_blank" rel="noopener">cloud.siliconflow.cn</a> 注册</li>
-        <li>控制台 → API 密钥 → 新建</li>
-        <li>模型名填 <code>Qwen/Qwen2.5-VL-32B-Instruct</code></li>
-      </ol>
+      </details>
     </div>
   </div>
 
@@ -135,9 +135,9 @@ h1{font-size:20px;margin:0 0 4px;color:#111;}
 const CFG_KEY = 'dr_cfg_v1';
 const PROVIDERS = {
   zhipu:   { name:'智谱 GLM-4V-Flash', base:'https://open.bigmodel.cn/api/paas/v4/chat/completions', model:'glm-4v-flash',
-             tip:'推荐智谱：视觉模型 glm-4v-flash 完全免费且不限次数' },
+             tip:'推荐硅基流动：官方接口支持浏览器直连，手机上稳定可用' },
   silicon: { name:'硅基流动 SiliconFlow', base:'https://api.siliconflow.cn/v1/chat/completions', model:'Qwen/Qwen2.5-VL-32B-Instruct',
-             tip:'硅基流动：注册送 14 元额度，识别准确率更高' },
+             tip:'推荐！官方支持浏览器直连，手机上稳定可用；注册送额度，视觉模型识别准确率高' },
   custom:  { name:'自定义接口', base:'', model:'', tip:'填兼容 OpenAI 格式的视觉模型接口地址' }
 };
 
@@ -174,7 +174,7 @@ function setStatus(type, text){
 }
 
 function applyProvider(p, keepValues){
-  const conf = PROVIDERS[p] || PROVIDERS.zhipu;
+  const conf = PROVIDERS[p] || PROVIDERS.silicon;
   $('#providerTip').textContent = conf.tip;
   if(!keepValues){
     $('#base').value = conf.base;
@@ -203,22 +203,22 @@ function loadForm(){
     try{ legacy = localStorage.getItem('rep_cfg_kKey') || ''; }catch(e){}
     if(legacy){
       $('#key').value = legacy.trim();
-      $('#provider').value = 'zhipu';
-      applyProvider('zhipu', false);
+      $('#provider').value = 'silicon';
+      applyProvider('silicon', false);
       setStatus('no', '检测到旧版 Key，请点「保存」完成迁移');
     }else{
-      $('#provider').value = 'zhipu';
-      applyProvider('zhipu', false);
+      $('#provider').value = 'silicon';
+      applyProvider('silicon', false);
       setStatus('no', '未配置');
     }
     renderSaved({});
     return;
   }
-  $('#provider').value = c.provider || 'zhipu';
+  $('#provider').value = c.provider || 'silicon';
   $('#base').value = c.base || PROVIDERS[c.provider]?.base || '';
   $('#model').value = c.model || PROVIDERS[c.provider]?.model || '';
   $('#key').value = c.key || '';
-  applyProvider(c.provider || 'zhipu', true);
+  applyProvider(c.provider || 'silicon', true);
   setStatus('ok', '已配置 · ' + (PROVIDERS[c.provider]?.name || '自定义') + ' · 尾号 ' + String(c.key).slice(-4));
   renderSaved(c);
 }
@@ -336,7 +336,7 @@ $('#btnClear').onclick = () => {
 };
 
 /* 启动 */
-applyProvider('zhipu', false);
+applyProvider('silicon', false);
 loadForm();
 
 /* 环境检测：file:// 或受限环境提示 */
