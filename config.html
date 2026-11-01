@@ -59,50 +59,7 @@ h1{font-size:20px;margin:0 0 4px;color:#111;}
 <div class="wrap">
   <a class="backbtn" href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>返回日志</a>
   <h1>配置中心</h1>
-  <div class="sub">识别接口与人员名单等基础设置，填一次保存即可，日志页自动读取</div>
-
-  <div class="card">
-    <div class="sec">识别接口</div>
-
-    <div class="field">
-      <label>服务商</label>
-      <select id="provider">
-        <option value="free">硅基流动·免费OCR（DeepSeek-OCR，免费）</option>
-        <option value="silicon">硅基流动 SiliconFlow（推荐 · 手机直连可用）</option>
-        <option value="zhipu">智谱 GLM-4V-Flash（免费但手机可能连不上）</option>
-        <option value="custom">自定义接口</option>
-      </select>
-      <div class="tip" id="providerTip">推荐硅基流动：官方接口支持浏览器直连，手机上稳定可用</div>
-    </div>
-
-    <div class="field">
-      <label>接口地址 <span class="req">*</span></label>
-      <input id="base" placeholder="https://..." autocomplete="off" spellcheck="false">
-    </div>
-
-    <div class="field">
-      <label>模型名称 <span class="req">*</span></label>
-      <input id="model" placeholder="glm-4v-flash" autocomplete="off" spellcheck="false">
-    </div>
-
-    <div class="field">
-      <label>API Key <span class="req">*</span></label>
-      <div class="pwbox">
-        <input id="key" type="password" placeholder="粘贴你的 Key" autocomplete="off" spellcheck="false">
-        <button class="eye" id="eye" type="button">显示</button>
-      </div>
-      <div class="tip">Key 只保存在这台手机浏览器里，不会上传到任何服务器</div>
-    </div>
-
-    <div class="status no" id="status">
-      <span class="dot"></span><span id="statusText">未配置</span>
-    </div>
-
-    <div class="actions">
-      <button class="btn-test" id="btnTest">测试连通</button>
-      <button class="btn-pri" id="btnSave">保存</button>
-    </div>
-  </div>
+  <div class="sub">人员与炉号等基础设置，改一次保存即可，日志页自动读取</div>
 
   <div class="card">
     <div class="sec">人员配置</div>
@@ -115,14 +72,6 @@ h1{font-size:20px;margin:0 0 4px;color:#111;}
     <div id="furnaceChips" class="chips"></div>
     <div class="crew-count">当前共 <b id="furnaceCount">0</b> 个炉号 · 点 <b style="color:#8a94a3">＋</b> 新增，点右上角 <b style="color:#c0392b">×</b> 删除 · 日志页按炉号正序排列</div>
   </div>
-
-  <div class="card">
-    <div class="sec">当前保存的内容</div>
-    <div id="saved" style="font-size:13px;color:#666;line-height:1.9;">读取中…</div>
-    <div class="actions" style="margin-top:14px">
-      <button class="btn-sec" id="btnClear">清除配置</button>
-    </div>
-  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -130,15 +79,6 @@ h1{font-size:20px;margin:0 0 4px;color:#111;}
 <script>
 /* ===================== 存储层（与日志页共用同一份） ===================== */
 const CFG_KEY = 'dr_cfg_v1';
-const PROVIDERS = {
-  free:    { name:'硅基流动·免费OCR(DeepSeek-OCR)', base:'https://api.siliconflow.cn/v1/chat/completions', model:'deepseek-ai/DeepSeek-OCR',
-             tip:'免费！DeepSeek 文档解析模型，输出表格自动提取比表；需完成实名认证才可调用' },
-  zhipu:   { name:'智谱 GLM-4V-Flash', base:'https://open.bigmodel.cn/api/paas/v4/chat/completions', model:'glm-4v-flash',
-             tip:'推荐硅基流动：官方接口支持浏览器直连，手机上稳定可用' },
-  silicon: { name:'硅基流动 SiliconFlow', base:'https://api.siliconflow.cn/v1/chat/completions', model:'Qwen/Qwen3-VL-32B-Instruct',
-             tip:'推荐！官方支持浏览器直连；Qwen3-VL 系列识别准，每天识别几张表约不到1分钱；想要更便宜可在模型名里改用 Qwen/Qwen3-VL-8B-Instruct' },
-  custom:  { name:'自定义接口', base:'', model:'', tip:'填兼容 OpenAI 格式的视觉模型接口地址' }
-};
 
 const $ = s => document.querySelector(s);
 let memFallback = {};
@@ -164,216 +104,6 @@ function toast(msg, ms){
   clearTimeout(toast._t);
   toast._t = setTimeout(()=>t.classList.remove('on'), ms||2000);
 }
-
-/* ===================== 表单逻辑 ===================== */
-function setStatus(type, text){
-  const el = $('#status');
-  el.className = 'status ' + type;
-  $('#statusText').textContent = text;
-}
-
-function applyProvider(p, keepValues){
-  const conf = PROVIDERS[p] || PROVIDERS.free;
-  $('#providerTip').textContent = conf.tip;
-  if(!keepValues){
-    $('#base').value = conf.base;
-    $('#model').value = conf.model;
-  }
-}
-
-$('#provider').onchange = () => {
-  applyProvider($('#provider').value, false);
-};
-
-/* 密码显隐 */
-$('#eye').onclick = () => {
-  const inp = $('#key');
-  const isPw = inp.type === 'password';
-  inp.type = isPw ? 'text' : 'password';
-  $('#eye').textContent = isPw ? '隐藏' : '显示';
-};
-
-/* 载入已保存的配置 */
-function loadForm(){
-  const c = getCfg();
-  if(!c || !c.key){
-    // 兼容旧版本 key（rep_cfg_kKey）
-    let legacy = '';
-    try{ legacy = localStorage.getItem('rep_cfg_kKey') || ''; }catch(e){}
-    if(legacy){
-      $('#key').value = legacy.trim();
-      $('#provider').value = 'free';
-      applyProvider('free', false);
-      setStatus('no', '检测到旧版 Key，请点「保存」完成迁移');
-    }else{
-      $('#provider').value = 'free';
-      applyProvider('free', false);
-      setStatus('no', '未配置');
-    }
-    renderSaved({});
-    return;
-  }
-  $('#provider').value = c.provider || 'free';
-  if(/PaddleOCR-VL/i.test(c.model)){
-    c.model = 'deepseek-ai/DeepSeek-OCR';        // PaddleOCR-VL 已下架，自动换免费的 DeepSeek-OCR
-    setCfg(Object.assign({}, c, {model: c.model}));
-  }
-  if(c.model === 'Qwen/Qwen2.5-VL-32B-Instruct'){
-    c.model = 'Qwen/Qwen3-VL-32B-Instruct';   // 旧模型已下架，自动升级
-    setCfg(Object.assign({}, c, {model: c.model}));
-  }
-  $('#base').value = c.base || PROVIDERS[c.provider]?.base || '';
-  $('#model').value = c.model || PROVIDERS[c.provider]?.model || '';
-  $('#key').value = c.key || '';
-  applyProvider(c.provider || 'free', true);
-  setStatus('ok', '已配置 · ' + (PROVIDERS[c.provider]?.name || '自定义') + ' · 尾号 ' + String(c.key).slice(-4));
-  renderSaved(c);
-}
-
-function renderSaved(c){
-  const box = $('#saved');
-  if(!c.key){
-    box.innerHTML = '<span style="color:#c0392b">配置为空，拍照识别不可用</span>';
-    return;
-  }
-  const mask = v => {
-    v = String(v||'');
-    if(v.length <= 8) return v;
-    return v.slice(0,4) + '****' + v.slice(-4);
-  };
-  box.innerHTML =
-    '<div>服务商：<b>' + (PROVIDERS[c.provider]?.name || '自定义') + '</b></div>' +
-    '<div>模型：<span style="font-family:monospace;font-size:12px">' + (c.model || '-') + '</span></div>' +
-    '<div>Key：<span style="font-family:monospace;font-size:12px">' + mask(c.key) + '</span></div>' +
-    '<div>保存时间：' + (c.savedAt ? new Date(c.savedAt).toLocaleString('zh-CN') : '—') + '</div>';
-}
-
-/* 保存 */
-$('#btnSave').onclick = () => {
-  const provider = $('#provider').value;
-  const base = $('#base').value.trim();
-  const model = $('#model').value.trim();
-  const key = $('#key').value.trim();
-
-  // 校验
-  ['#base','#model','#key'].forEach(s => $(s).classList.remove('err'));
-  if(!base){ $('#base').classList.add('err'); toast('请填写接口地址'); return; }
-  if(!/^https?:\/\//i.test(base)){ $('#base').classList.add('err'); toast('接口地址需以 http:// 或 https:// 开头'); return; }
-  if(!model){ $('#model').classList.add('err'); toast('请填写模型名称'); return; }
-  if(!key){ $('#key').classList.add('err'); toast('请粘贴 API Key'); return; }
-  if(/\s/.test(key)){ $('#key').classList.add('err'); toast('Key 中不能有空格，请重新复制'); return; }
-
-  const old = getCfg();
-  const cfg = Object.assign({}, old, {
-    provider, base, model, key,
-    savedAt: new Date().toISOString()
-  });
-  if(setCfg(cfg)){
-    setStatus('ok', '已保存 · ' + (PROVIDERS[provider]?.name || '自定义') + ' · 尾号 ' + key.slice(-4));
-    renderSaved(cfg);
-    toast('✓ 已保存\n日志页可直接使用');
-  }
-};
-
-/* 测试连通（带诊断：区分「网络不通」与「跨域被拦截」） */
-$('#btnTest').onclick = async () => {
-  const base = $('#base').value.trim();
-  const model = $('#model').value.trim();
-  const key = $('#key').value.trim();
-  if(!base || !model || !key){ toast('请先填写接口地址、模型名称和 Key'); return; }
-
-  const btn = $('#btnTest');
-  btn.disabled = true; btn.textContent = '测试中…';
-  setStatus('no', '正在连接接口…');
-  const t0 = Date.now();
-  const timeout = (ms)=>{ const c=new AbortController(); setTimeout(()=>c.abort(), ms); return c.signal; };
-  let res=null;
-  const directErrs=[];
-
-  try{
-    /* ---- 通道1：直连 ---- */
-    try{
-      res = await fetch(base, {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + key },
-        body: JSON.stringify({ model, messages:[{ role:'user', content:'hi' }], max_tokens: 8 }),
-        signal: timeout(20000)
-      });
-    }catch(e1){
-      res = null;
-      const why = e1.name==='AbortError' ? '20秒无响应(超时)' : (e1.message||'连接失败');
-      directErrs.push('直连失败：'+why);
-      /* 网络可达性探测（no-cors 只测能不能连上服务器，不受跨域限制） */
-      let netOk=false;
-      try{ await fetch(base, {mode:'no-cors', signal: timeout(10000)}); netOk=true; }catch(e2){}
-      if(netOk){
-        directErrs.push('诊断：网络可达，但浏览器拦截了跨域请求');
-      }else{
-        directErrs.push('诊断：手机网络连不上该接口域名');
-      }
-      /* ---- 通道2：中转（仅在直连失败时尝试） ---- */
-      try{
-        res = await fetch('https://corsproxy.io/?url='+encodeURIComponent(base), {
-          method:'POST',
-          headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + key },
-          body: JSON.stringify({ model, messages:[{ role:'user', content:'hi' }], max_tokens: 8 }),
-          signal: timeout(20000)
-        });
-      }catch(e2){
-        res = null;
-        directErrs.push('中转失败：'+(e2.name==='AbortError'?'超时':(e2.message||'连接失败')));
-      }
-    }
-
-    if(!res){
-      /* 直连与中转都失败：按诊断结果给出精确指引 */
-      let guide;
-      if(directErrs.some(s=>s.includes('跨域拦截'))){
-        guide='网络是通的，但当前浏览器拦截了跨域请求。\n最常见原因：在微信里直接打开。\n解决：点右上角「…」→「在浏览器中打开」，或复制网址用手机浏览器（Chrome/Safari）打开后再测。';
-      }else if(directErrs.some(s=>s.includes('连不上'))){
-        guide='手机当前网络无法访问该接口域名。\n请检查：①手机能否上网 ②接口地址是否拼写正确 ③是否开了VPN/代理（关掉再试）';
-      }else{
-        guide='直连与中转都失败，且未能定位原因。\n建议换一个网络（如换Wi-Fi/流量）再试。';
-      }
-      setStatus('err', '✗ 连接失败');
-      toast('✗ 连接失败\n'+directErrs.join('\n')+'\n\n'+guide, 9000);
-    }else{
-      const txt = await res.text();
-      const ms = Date.now() - t0;
-      if(res.ok){
-        setStatus('ok', '✓ 连接成功（' + ms + 'ms）· Key 可用');
-        toast('✓ Key 可用，可以识别了', 2200);
-      }else{
-        let hint = '';
-        if(res.status === 401) hint = 'Key 不正确或已失效';
-        else if(res.status === 402) hint = '账户现金余额为 0（硅基流动「欠费拦截」：免费模型也要先充值解锁。实名后充 0.01 元即可，免费模型调用不扣余额）';
-        else if(res.status === 403) hint = '无权限访问该模型，检查模型名';
-        else if(res.status === 404) hint = '接口地址不对';
-        else if(res.status === 429) hint = '调用过于频繁，稍后再试';
-        else if(res.status >= 500) hint = '服务端异常，稍后再试';
-        setStatus('err', '✗ 失败 ' + res.status + (hint ? '：' + hint : ''));
-        toast('✗ 失败 ' + res.status + (hint ? '\n' + hint : '') + '\n' + txt.slice(0,100), 4500);
-      }
-    }
-  }catch(e){
-    setStatus('err', '✗ 测试异常');
-    toast('✗ 测试异常：' + e.message, 4000);
-  }
-  btn.disabled = false; btn.textContent = '测试连通';
-};
-
-/* 清除配置 */
-$('#btnClear').onclick = () => {
-  if(!confirm('确定清除已保存的 API Key？\n清除后拍照识别将不可用。')) return;
-  if(LS_OK){
-    try{ localStorage.removeItem(CFG_KEY); localStorage.removeItem('rep_cfg_kKey'); }catch(e){}
-  }
-  memFallback = {};
-  $('#key').value = '';
-  setStatus('no', '未配置');
-  renderSaved({});
-  toast('已清除配置');
-};
 
 /* ===================== 人员配置 ===================== */
 const DEFAULT_CREW = ['亷丽霞','许来霞','刘晓燕','张春燕','刘淑会','岳静','许娜娜'];
@@ -540,16 +270,13 @@ function startAddFurnace(btn){
 }
 
 /* 启动 */
-applyProvider('free', false);
-loadForm();
 renderCrew();
 renderFurnaces();
 
 /* 环境检测：file:// 或受限环境提示 */
 (function envCheck(){
   const warn = [];
-  if(location.protocol === 'file:') warn.push('当前是本地文件方式打开（file://），「测试连通」和「拍照识别」会被浏览器拦截，属正常现象。请把页面部署到 GitHub Pages 后用 https 网址打开，那些功能才能用。「保存」不受影响。');
-  if(/MicroMessenger/i.test(navigator.userAgent)) warn.push('当前在微信内置浏览器中打开，网络请求可能被限制。建议点右上角「…」→「在浏览器中打开」。');
+  if(location.protocol === 'file:') warn.push('当前是本地文件方式打开（file://），配置仍可正常保存使用。建议部署到 GitHub Pages 后用 https 网址打开体验更好。');
   if(!LS_OK) warn.push('当前浏览器禁止本地存储（无痕模式？），配置将无法保存。');
   if(warn.length){
     const el = document.createElement('div');
