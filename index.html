@@ -729,7 +729,20 @@ const OCR_PROMPT=`你是精确的表格识别引擎。图片是一张中文"取�
 格式：{"rows":[{"no":8,"time":"0:00","surface":4.1}]}
 规则：1.每个对象只保留 no(炉号数字)/time(取样时间)/surface(实测混样比表数值) 三个字段。2.保持原行顺序与行数，一行不漏，合并单元格续行炉号沿用上一行；即使某行实测混样比表为空，也必须输出该行对象(surface 填 null)，严禁省略空行。3.实测混样比表为空则 surface 填 null。4.只转录"实测混样比表"列，不要抄成"计划比表"（计划通常是 3-4.5 或 23-29 这种区间格式）。5.数字保留原样不四舍五入。6.模糊无法确定填 null，不要猜。`;
 
-const OCR_MD_PROMPT=`Extract all tables from the image and convert them into ONE Markdown table. Keep the original Chinese header row exactly (炉号 / 名称 / 批次 / 取样时间 / 计划比表 / 实测混样比表 / 设定炉温). Output every row in order, one row per line; do not skip or merge any row. For merged cells, leave the repeated cell EMPTY. Output ONLY the Markdown table, no explanation, no extra text.`;
+const OCR_MD_PROMPTS=[
+  '<|grounding|>Extract all tables and convert to markdown format.',   // DeepSeek-OCR 官方推荐（表格场景）
+  'Free OCR.',                                                          // 官方通用 OCR 提示词（备用）
+  '<|grounding|>Convert the document to markdown.'                      // 官方 Markdown 提示词（备用）
+];
+// 检测模型输出「重复失控」（如 model model model…）：同一词占比过高即判定
+function isGarbledRepeat(txt){
+  if(!txt||txt.length<120)return false;
+  const toks=txt.split(/\s+/).filter(Boolean);
+  if(toks.length<30)return false;
+  const cnt={};let mx=0;
+  for(const t of toks){cnt[t]=(cnt[t]||0)+1;if(cnt[t]>mx)mx=cnt[t];}
+  return mx/toks.length>0.5;
+}
 
 /* ================= 统一存储层（带容错与备份） ================= */
 const STORE = {
@@ -902,48 +915,66 @@ async function callVision(b64, onLog){
   }
   const isOCR = /OCR|Paddle|paddle/i.test(model);
   if(onLog)onLog('   · 识别通道：'+(isOCR?'OCR(Markdown表格)':'JSON')+' · base='+base.replace(/^https?:\/\//,''));
-  const messages = isOCR
-    ? [{role:'user',content:[{type:'text',text:OCR_MD_PROMPT},{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}}]}]
-    : [{role:'system',content:OCR_PROMPT},{role:'user',content:[{type:'text',text:'识别这张取样记录表，按要求输出 JSON。'},{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}}]}];
-  const body=JSON.stringify({model,temperature:0,max_tokens:isOCR?4096:1024,messages});
+  const imgPart={type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}};
+  const mkBody=prompt=>JSON.stringify({model,temperature:0,max_tokens:isOCR?4096:1024,messages: isOCR
+    ? [{role:'user',content:[{type:'text',text:prompt},imgPart]}]
+    : [{role:'system',content:OCR_PROMPT},{role:'user',content:[{type:'text',text:'识别这张取样记录表，按要求输出 JSON。'},imgPart]}]});
   const headers={'Content-Type':'application/json','Authorization':'Bearer '+key};
   // HTTP 报错立即抛出真实原因；只有网络异常才换通道
   const urls=[base,'https://corsproxy.io/?url='+encodeURIComponent(base)];
-  let lastNetErr=null;
-  for(let i=0;i<urls.length;i++){
-    try{
-      const t0=Date.now();
-      const res=await fetch(urls[i],{method:'POST',headers,body});
-      const raw=await res.text();
-      if(onLog)onLog('   · HTTP '+res.status+'，耗时 '+(Date.now()-t0)+'ms，响应 '+(raw?raw.length:0)+' 字节');
-      if(!res.ok){
-        let detail=raw.slice(0,200);
-        try{const je=JSON.parse(raw);if(je.error&&je.error.message)detail=je.error.message+(je.error.code?'（code '+je.error.code+'）':'');}catch(e){}
-        let friendly='';
-        if(res.status===402)friendly='（账户现金余额为 0：硅基流动会拦截所有调用，免费模型也一样。实名后充 0.01 元解锁账户，免费模型即可用、不扣余额）';
-        else if(res.status===401)friendly='（Key 无效或已过期）';
-        else if(res.status===429)friendly='（调用过于频繁，稍后再试）';
-        else if(res.status===404)friendly='（模型不存在或已下架，请到 config.html 换模型名）';
-        throw new Error('HTTP '+res.status+friendly+'：'+detail);
+  const post=async b=>{
+    let lastNetErr=null;
+    for(let i=0;i<urls.length;i++){
+      try{
+        const t0=Date.now();
+        const res=await fetch(urls[i],{method:'POST',headers,body:b});
+        const raw=await res.text();
+        if(onLog)onLog('   · HTTP '+res.status+'，耗时 '+(Date.now()-t0)+'ms');
+        if(!res.ok){
+          let detail=raw.slice(0,200);
+          try{const je=JSON.parse(raw);if(je.error&&je.error.message)detail=je.error.message+(je.error.code?'（code '+je.error.code+'）':'');}catch(e){}
+          let friendly='';
+          if(res.status===402)friendly='（账户现金余额为 0：硅基流动会拦截所有调用，免费模型也一样。实名后充 0.01 元解锁账户，免费模型即可用、不扣余额）';
+          else if(res.status===401)friendly='（Key 无效或已过期）';
+          else if(res.status===429)friendly='（调用过于频繁，稍后再试）';
+          else if(res.status===404)friendly='（模型不存在或已下架，请到 config.html 换模型名）';
+          throw new Error('HTTP '+res.status+friendly+'：'+detail);
+        }
+        return raw;
+      }catch(e){
+        if(e.message&&e.message.startsWith('HTTP'))throw e;      // 服务端明确报错，不重试
+        lastNetErr=e;                                             // 网络异常，试下一通道
+        if(onLog)onLog('   · 通道 '+(i+1)+' 网络失败：'+(e.message||e));
       }
-      const j=JSON.parse(raw);
-      let txt=(j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content||'').replace(/```json|```markdown|```md|```/g,'').trim();
-      if(onLog)onLog('   · 模型返回文本 '+(txt?txt.length:0)+' 字：'+txt.slice(0,60)+(txt.length>60?'…':''));
-      if(isOCR){
-        const rows=parseMarkdownTable(txt);
-        if(!rows.length)throw new Error('OCR 结果解析失败：'+txt.slice(0,150));
-        return {rows};
-      }
-      const data=extractJSON(txt);
-      if(!data||!Array.isArray(data.rows)||!data.rows.length)throw new Error('返回内容无法解析成表格：'+txt.slice(0,120));
-      return data;
-    }catch(e){
-      if(e.message&&e.message.startsWith('HTTP'))throw e;      // 服务端明确报错，不重试
-      lastNetErr=e;                                             // 网络异常，试下一通道
-      if(onLog)onLog('   · 通道 '+(i+1)+' 失败：'+(e.message||e)+'，尝试下一通道…');
     }
+    throw new Error('网络请求失败（直连与中转均不通）。若在微信内打开，请点右上角「…」用系统浏览器重试');
+  };
+  const getTxt=raw=>{
+    const j=JSON.parse(raw);
+    return (j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content||'').replace(/```json|```markdown|```md|```/g,'').trim();
+  };
+  if(isOCR){
+    for(let pi=0;pi<OCR_MD_PROMPTS.length;pi++){
+      if(pi>0&&onLog)onLog('   · 换官方提示词 #'+(pi+1)+'（'+OCR_MD_PROMPTS[pi].slice(0,30)+'…）重试');
+      const raw=await post(mkBody(OCR_MD_PROMPTS[pi]));
+      const txt=getTxt(raw);
+      if(onLog)onLog('   · 模型返回 '+(txt?txt.length:0)+' 字：'+txt.slice(0,60)+(txt.length>60?'…':''));
+      if(isGarbledRepeat(txt)){
+        if(onLog)onLog('   · ⚠ 输出重复失控（该模型已知毛病），换提示词重试');
+        continue;
+      }
+      const rows=parseMarkdownTable(txt);
+      if(rows.length)return {rows};
+      if(onLog)onLog('   · 该提示词没解析出表格行，尝试下一个…');
+    }
+    throw new Error('DeepSeek-OCR 多次输出异常（重复失控或无表格，该模型已知问题）。建议换 Qwen/Qwen3-VL-8B-Instruct：到 config.html 把模型名改掉即可，识别更稳（费用极低，一张表不到1分钱）');
   }
-  throw new Error('网络请求失败（直连与中转均不通）。若在微信内打开，请点右上角「…」用系统浏览器重试');
+  const raw=await post(mkBody());
+  const txt=getTxt(raw);
+  if(onLog)onLog('   · 模型返回 '+(txt?txt.length:0)+' 字');
+  const data=extractJSON(txt);
+  if(!data||!Array.isArray(data.rows)||!data.rows.length)throw new Error('返回内容无法解析成表格：'+txt.slice(0,120));
+  return data;
 }
 
 const t2m=t=>{const m=String(t||'').trim().match(/^(\d{1,2})[:：点](\d{2})?$/);return m?(+m[1])*60+(+m[2]||0):-1;};
