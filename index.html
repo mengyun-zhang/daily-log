@@ -79,7 +79,7 @@ h1{font-size:18px;margin:0 0 8px;line-height:1.4;color:#111;}
 
 /* ---- 炉台录入 ---- */
 .ftable{width:100%;border-collapse:collapse;}
-.ftable th{font-size:11px;color:#666;font-weight:600;padding:0 2px 6px;text-align:center;}
+.ftable th{font-size:13px;color:#666;font-weight:600;padding:0 2px 6px;text-align:center;}
 .ftable th:first-child{text-align:left;width:52px;}
 .ftable td{padding:3px 2px;text-align:center;}
 .ftable td:first-child{text-align:left;}
@@ -206,7 +206,7 @@ h1{font-size:18px;margin:0 0 8px;line-height:1.4;color:#111;}
     <input id="camFile" type="file" accept="image/*" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;left:-9999px;">
     <div id="ocrStatus"></div>
     <table class="ftable">
-      <tr><th>炉号</th><th>产量<br>kg</th><th>风量</th><th>松装<br>kg</th><th>比表<br>m²/g</th></tr>
+      <tr><th>炉号</th><th>产量 kg</th><th>🌀 风量</th><th>松装 kg</th><th>比表 m²/g</th></tr>
       <tbody id="ftbody"></tbody>
     </table>
     <div class="hint">只填在产炉台即可，未填的炉号不会出现在日报里。比表 >10 会标红提示复核。</div>
@@ -512,7 +512,7 @@ function renderCrew(){
   crewBox.innerHTML='';
   CREW.forEach((n,i)=>{
     const b=document.createElement('button');
-    b.textContent=n;
+    b.textContent = n.includes('丽霞') ? ('❤️ ' + n) : n;   // 「亷丽霞」前加红色爱心
     b.onclick=()=>{sel[i]=!sel[i];b.className=sel[i]?'':'off';refreshCrew();
       STORE.set(key('crew'), sel);};
     crewBox.appendChild(b);
@@ -611,7 +611,13 @@ function validate(){
 const MOON_SVG='<svg viewBox="0 0 24 24"><path fill="#4a90d9" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
 function setTitle(el,d,shiftName,team){
   el.textContent='';
-  el.appendChild(document.createTextNode(`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${shiftName} `));
+  el.appendChild(document.createTextNode(`${d.getFullYear()}年${d.getMonth()+1}月`));
+  const dd=document.createElement('span');
+  dd.style.color='#1a5fb4';
+  dd.style.fontWeight='700';
+  dd.textContent=d.getDate();
+  el.appendChild(dd);
+  el.appendChild(document.createTextNode('日 '+shiftName+' '));
   if(shiftName==='白班'){
     el.appendChild(document.createTextNode('☀️'));
   }else{
@@ -695,11 +701,11 @@ $('#btnCopy').onclick=()=>{
   const people=CREW.filter((_,i)=>sel[i]);
   const d=cur;
   let L=`${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${shift}\n`;
-  L+=`当班人员：${people.join('、')}（共${people.length}人）\n`;
+  L+=`当班人员：${people.join('、')}（共${people.length}人）\n\n`;
   FURNACES.forEach(no=>{const r=fdata[no];if(!r)return;
     const p=[];if(r.output!==null)p.push(`产量${r.output}kg`);if(r.airflow!==null)p.push(`风量${r.airflow}`);
     if(r.density!==null)p.push(`松装${r.density}`);if(r.surface!==null)p.push(`比表${r.surface}`);
-    L+=`${no}# 炉：${p.join('，')}\n`;});
+    L+=`${no}号 炉：${p.join('，')}\n`;});
   const done=()=>{const b=$('#btnCopy');b.textContent='✓ 已复制';setTimeout(()=>b.textContent='复制文本',1500);};
   if(navigator.clipboard)navigator.clipboard.writeText(L).then(done,()=>fallback(L,done));
   else fallback(L,done);
