@@ -346,7 +346,7 @@ $('#btnTest').onclick = async () => {
       }else{
         let hint = '';
         if(res.status === 401) hint = 'Key 不正确或已失效';
-        else if(res.status === 402) hint = '账户余额不足，请到平台充值（cloud.siliconflow.cn → 费用中心）';
+        else if(res.status === 402) hint = '账户现金余额为 0（硅基流动「欠费拦截」：免费模型也要先充值解锁。实名后充 0.01 元即可，免费模型调用不扣余额）';
         else if(res.status === 403) hint = '无权限访问该模型，检查模型名';
         else if(res.status === 404) hint = '接口地址不对';
         else if(res.status === 429) hint = '调用过于频繁，稍后再试';

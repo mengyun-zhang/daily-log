@@ -892,7 +892,7 @@ function extractJSON(txt){
   return (v&&typeof v==='object')?v:null;
 }
 
-async function callVision(b64){
+async function callVision(b64, onLog){
   const c = readCfg();
   const base = c.base || PROVIDERS.silicon.base;
   const model = c.model || PROVIDERS.silicon.model;
@@ -901,6 +901,7 @@ async function callVision(b64){
     throw new Error('没有配置 API Key。请到 config.html 填写并保存 Key。');
   }
   const isOCR = /OCR|Paddle|paddle/i.test(model);
+  if(onLog)onLog('   · 识别通道：'+(isOCR?'OCR(Markdown表格)':'JSON')+' · base='+base.replace(/^https?:\/\//,''));
   const messages = isOCR
     ? [{role:'user',content:[{type:'text',text:OCR_MD_PROMPT},{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}}]}]
     : [{role:'system',content:OCR_PROMPT},{role:'user',content:[{type:'text',text:'识别这张取样记录表，按要求输出 JSON。'},{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}}]}];
@@ -911,19 +912,23 @@ async function callVision(b64){
   let lastNetErr=null;
   for(let i=0;i<urls.length;i++){
     try{
+      const t0=Date.now();
       const res=await fetch(urls[i],{method:'POST',headers,body});
       const raw=await res.text();
+      if(onLog)onLog('   · HTTP '+res.status+'，耗时 '+(Date.now()-t0)+'ms，响应 '+(raw?raw.length:0)+' 字节');
       if(!res.ok){
         let detail=raw.slice(0,200);
         try{const je=JSON.parse(raw);if(je.error&&je.error.message)detail=je.error.message+(je.error.code?'（code '+je.error.code+'）':'');}catch(e){}
         let friendly='';
-        if(res.status===402)friendly='（账户余额不足，请到平台充值后重试）';
+        if(res.status===402)friendly='（账户现金余额为 0：硅基流动会拦截所有调用，免费模型也一样。实名后充 0.01 元解锁账户，免费模型即可用、不扣余额）';
         else if(res.status===401)friendly='（Key 无效或已过期）';
         else if(res.status===429)friendly='（调用过于频繁，稍后再试）';
+        else if(res.status===404)friendly='（模型不存在或已下架，请到 config.html 换模型名）';
         throw new Error('HTTP '+res.status+friendly+'：'+detail);
       }
       const j=JSON.parse(raw);
       let txt=(j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content||'').replace(/```json|```markdown|```md|```/g,'').trim();
+      if(onLog)onLog('   · 模型返回文本 '+(txt?txt.length:0)+' 字：'+txt.slice(0,60)+(txt.length>60?'…':''));
       if(isOCR){
         const rows=parseMarkdownTable(txt);
         if(!rows.length)throw new Error('OCR 结果解析失败：'+txt.slice(0,150));
@@ -935,6 +940,7 @@ async function callVision(b64){
     }catch(e){
       if(e.message&&e.message.startsWith('HTTP'))throw e;      // 服务端明确报错，不重试
       lastNetErr=e;                                             // 网络异常，试下一通道
+      if(onLog)onLog('   · 通道 '+(i+1)+' 失败：'+(e.message||e)+'，尝试下一通道…');
     }
   }
   throw new Error('网络请求失败（直连与中转均不通）。若在微信内打开，请点右上角「…」用系统浏览器重试');
@@ -1148,32 +1154,44 @@ function parseBiaobiWords(words){
 async function doOCR(file){
   camBtn.disabled=true;
   const c=readCfg();
-  showOcr(c.key?'AI 识别中…（约 10~30 秒）':'正在启动本地识别引擎…（未配置 Key，走本地免联网识别）');
-  let aiErr=null;
-  if(c.key){
+  const steps=[];
+  const log=(t,err)=>{ steps.push(t); showOcr(steps.join('\n'),err); };
+
+  // 无 Key：仅走本地识别（能力有限）
+  if(!c.key){
+    log('未配置 API Key，改用本地识别（复杂表格可能不准）…');
     try{
-      const b64=await compressImg(file,1600);
-      const data=await callVision(b64);
-      await applyResult(data.rows||[],'AI识别');
-      camBtn.disabled=false;camFile.value='';
-      return;
-    }catch(e){ aiErr=e; showOcr('AI 识别失败：'+e.message+'\n改用本地识别引擎重试…',true); }
+      const worker=await getWorker(msg=>log(msg));
+      const {data}=await worker.recognize(file,{},{text:true,blocks:true});
+      const words=collectWords(data);
+      if(!words.length)throw new Error('图片中没有识别到文字');
+      const r=parseBiaobiWords(words);
+      if(r.err==='no_header')throw new Error('没找到「比表」列头，请让表头完整入镜重拍');
+      if(r.err==='no_furnace')throw new Error('没认出炉号（如 1#、10#）');
+      if(r.err==='no_value')throw new Error('比表列下没识别到数值');
+      await applyResult(r.rows,'本地识别');
+    }catch(err){
+      const em=(err&&err.message)?err.message:String(err||'未知错误');
+      log('✗ 本地识别失败：'+em, true);
+      log('建议：到 config.html 配置 Key 后用 AI 识别（准确率高）。');
+    }
+    camBtn.disabled=false; camFile.value='';
+    return;
   }
+
+  // 有 Key：走 AI 识别，带逐步日志
+  log('① 配置：模型='+(c.model||'?')+' · Key尾号 '+String(c.key).slice(-4));
   try{
-    const worker=await getWorker(msg=>showOcr(msg));
-    const {data}=await worker.recognize(file,{},{text:true,blocks:true});
-    const words=collectWords(data);
-    if(!words.length)throw new Error('图片中没有识别到文字');
-    const r=parseBiaobiWords(words);
-    if(r.err==='no_header')throw new Error('没找到「比表」列头，请让表头完整入镜重拍');
-    if(r.err==='no_furnace')throw new Error('没认出炉号（如 1#、10#）');
-    if(r.err==='no_value')throw new Error('比表列下没识别到数值');
-    await applyResult(r.rows,'本地识别');
-  }catch(err){
-    const em=(err&&err.message)?err.message:(typeof err==='string'?err:(err?JSON.stringify(err):'未知错误'));
-    let msg=(aiErr?('AI：'+aiErr.message+'\n'):'')+'本地识别也失败：'+em;
-    if(!c.key)msg+='\n建议在 config.html 配置 Key 后用 AI 识别（准确率高）。';
-    showOcr(msg,true);
+    log('② 压缩图片…');
+    const b64=await compressImg(file,1600);
+    log('③ 调用识别接口（约 10~30 秒）…');
+    const data=await callVision(b64, log);
+    log('④ 接口返回 '+(data.rows||[]).length+' 行，解析并填入…');
+    await applyResult(data.rows||[],'AI识别');
+  }catch(e){
+    const em=(e&&e.message)?e.message:String(e||'未知错误');
+    log('✗ 识别失败：'+em, true);
+    log('排查：① 错误码含义见 config.html 测试说明；② 可回 config.html 点「测试连通」复核；③ 截图上面这段日志发我。');
   }
   camBtn.disabled=false;
   camFile.value='';
