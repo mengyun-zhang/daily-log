@@ -550,7 +550,7 @@
       card.innerHTML = `
         <div class="selected-card" style="animation:${fade}">
           <div class="sel-left">
-            <div class="sel-title">${escapeHtml(sel.name)} <span class="num">${abs}</span> 还有</div>
+            <div class="sel-title">${escapeHtml(sel.name)} 还有</div>
             <div class="sel-target">${fmtTarget(sel.date)}</div>
           </div>
           <div class="sel-right">
@@ -572,7 +572,7 @@
       row.className = "event-row" + (e.id === selectedId ? " selected" : "") + (diff < 0 ? " past" : "");
       row.style.animationDelay = (i * 0.04) + "s";
       row.innerHTML = `
-        <div class="event-name">${escapeHtml(e.name)} ${abs} 还有</div>
+        <div class="event-name">${escapeHtml(e.name)} 还有</div>
         <div class="event-count">
           <div class="count-num">${abs}</div>
           <div class="count-unit">天</div>
