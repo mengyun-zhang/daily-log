@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>倒数日</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+    background:
+      repeating-linear-gradient(90deg, rgba(0,0,0,.06) 0px, rgba(0,0,0,.06) 2px, transparent 2px, transparent 90px),
+      linear-gradient(180deg, #9a6a3f 0%, #8a5a34 40%, #7d5030 100%);
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
+    user-select: none;
+  }
+  .phone {
+    width: 100%;
+    max-width: 430px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ===== 顶部蓝色标题栏 ===== */
+  .titlebar {
+    background: linear-gradient(180deg, #2a7fd4 0%, #1c66b8 50%, #155aa8 100%);
+    padding: 10px 14px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 4px rgba(0,0,0,.3);
+    z-index: 5;
+    flex-shrink: 0;
+  }
+  .titlebar .title {
+    color: #fff;
+    font-size: 19px;
+    font-weight: 700;
+    text-shadow: 0 1px 2px rgba(0,0,0,.35);
+    letter-spacing: .5px;
+    flex: 1;
+    text-align: center;
+    transition: opacity .25s ease, transform .25s ease;
+  }
+  .add-btn {
+    width: 34px; height: 34px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(180deg, #4a97e0, #2f7ac8);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 1px 2px rgba(0,0,0,.3);
+    color: #fff;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .2s ease, background .2s ease;
+  }
+  .add-btn:active { transform: scale(.9); background: linear-gradient(180deg, #2f7ac8, #266ab5); }
+  .add-btn.adding { transform: rotate(45deg); }
+
+  /* ===== 木纹上的夹板卡片 ===== */
+  .board-area {
+    flex: 1;
+    padding: 0 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+  .clip {
+    position: relative;
+    width: 150px;
+    height: 22px;
+    margin: 0 auto;
+    z-index: 2;
+    flex-shrink: 0;
+    transition: transform .35s ease, opacity .35s ease;
+  }
+  .clip::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 140px; height: 14px;
+    background: linear-gradient(180deg, #d8dde3, #9aa2ab);
+    border-radius: 4px 4px 0 0;
+    box-shadow: 0 -1px 2px rgba(0,0,0,.4);
+  }
+  .clip::after {
+    content: "";
+    position: absolute;
+    top: 12px; left: 50%;
+    transform: translateX(-50%);
+    width: 100px; height: 12px;
+    background: linear-gradient(180deg, #eef1f4, #b6bdc6);
+    border-radius: 0 0 10px 10px;
+    box-shadow: 0 2px 3px rgba(0,0,0,.35);
+  }
+  .paper {
+    flex: 1;
+    background: linear-gradient(180deg, #f7f6f3 0%, #eeece8 60%, #e7e4df 100%);
+    border-radius: 4px;
+    box-shadow: 0 3px 10px rgba(0,0,0,.4);
+    margin-top: -2px;
+    padding: 26px 16px 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    transition: transform .35s ease, opacity .35s ease;
+  }
+
+  /* ===== 选中事件大卡片 ===== */
+  .selected-card {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 14px 4px 18px;
+    animation: fadeDown .3s ease;
+  }
+  .sel-left { padding-top: 14px; }
+  .sel-title { font-size: 20px; color: #333; font-weight: 600; }
+  .sel-title .num { margin: 0 4px; }
+  .sel-target { margin-top: 10px; font-size: 13px; color: #b5b2ad; }
+  .sel-right { display: flex; align-items: flex-start; gap: 6px; }
+  .big-num {
+    font-size: 64px; font-weight: 800; color: #111; line-height: 1;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    animation: popIn .35s cubic-bezier(.34,1.4,.64,1);
+  }
+  .days-badge {
+    background: #e03a3a;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin-top: 6px;
+  }
+
+  /* ===== 事件列表 ===== */
+  .event-list { margin-top: 4px; display: flex; flex-direction: column; gap: 10px; }
+  .event-row {
+    display: flex;
+    align-items: stretch;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,.18);
+    cursor: pointer;
+    background: linear-gradient(180deg, #fdfdfc, #ececea);
+    animation: fadeUp .3s ease backwards;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .event-row:active { transform: scale(.98); }
+  .event-row.selected { background: linear-gradient(180deg, #e8f2fc, #d4e8f8); }
+  .event-name {
+    flex: 1;
+    padding: 12px 12px;
+    font-size: 16px;
+    color: #444;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .event-count { display: flex; align-items: stretch; }
+  .count-num {
+    background: linear-gradient(180deg, #6db3ec, #3f8bd8);
+    color: #fff;
+    font-size: 22px;
+    font-weight: 700;
+    padding: 6px 12px;
+    display: flex; align-items: center;
+    min-width: 52px; justify-content: center;
+  }
+  .count-unit {
+    background: linear-gradient(180deg, #2f6fb5, #1f5696);
+    color: #fff;
+    font-size: 15px;
+    padding: 6px 10px;
+    display: flex; align-items: center;
+  }
+  .event-row.past .count-num { background: linear-gradient(180deg, #a9b3bd, #8d98a3); }
+  .event-row.past .count-unit { background: linear-gradient(180deg, #7c8791, #6a7480); }
+
+  /* ===== 空状态 ===== */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #b9b5af;
+    animation: fadeIn .5s ease;
+    padding-bottom: 10%;
+  }
+  .empty-state .icon { font-size: 52px; margin-bottom: 14px; opacity: .55; }
+  .empty-state .txt { font-size: 15px; line-height: 1.9; text-align: center; }
+  .empty-state .txt b { color: #8fb9df; font-weight: 600; }
+
+  /* ===== 添加页（全屏上滑） ===== */
+  .add-page {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(180deg, #2a7fd4 0%, #1c66b8 100%);
+    transform: translateY(100%);
+    transition: transform .38s cubic-bezier(.32,.72,.35,1);
+    will-change: transform;
+  }
+  .add-page.show { transform: translateY(0); }
+  .add-page .ap-bar {
+    padding: 10px 14px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  .ap-bar .ap-title { font-size: 18px; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,.3); }
+  .ap-btn {
+    background: rgba(255,255,255,.18);
+    border: none;
+    color: #fff;
+    font-size: 15px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background .15s ease, transform .15s ease;
+  }
+  .ap-btn:active { background: rgba(255,255,255,.32); transform: scale(.95); }
+  .ap-btn.ok { font-weight: 600; background: rgba(255,255,255,.9); color: #1c66b8; }
+  .ap-body {
+    flex: 1;
+    background: linear-gradient(180deg, #f7f6f3 0%, #eeece8 100%);
+    border-radius: 14px 14px 0 0;
+    margin-top: 8px;
+    padding: 26px 20px 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .ap-field { margin-bottom: 18px; animation: fadeUp .35s ease backwards; }
+  .ap-field:nth-child(2) { animation-delay: .06s; }
+  .ap-field:nth-child(3) { animation-delay: .12s; }
+  .ap-field label { font-size: 14px; color: #8a8680; display: block; margin-bottom: 8px; font-weight: 600; }
+  .ap-field input {
+    width: 100%;
+    font-size: 17px;
+    padding: 12px 14px;
+    border: 1.5px solid #dcdad6;
+    border-radius: 10px;
+    background: #fff;
+    outline: none;
+    transition: border-color .2s ease, box-shadow .2s ease;
+    -webkit-appearance: none;
+  }
+  .ap-field input:focus {
+    border-color: #3f8bd8;
+    box-shadow: 0 0 0 3px rgba(63,139,216,.15);
+  }
+  /* 快捷日期 */
+  .quick-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .quick-chip {
+    background: #fff;
+    border: 1.5px solid #dcdad6;
+    color: #666;
+    font-size: 13px;
+    padding: 7px 13px;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all .18s ease;
+  }
+  .quick-chip:active { transform: scale(.94); }
+  .quick-chip.active {
+    background: linear-gradient(180deg, #5aa2e6, #3f8bd8);
+    border-color: #3f8bd8;
+    color: #fff;
+  }
+  .ap-tip { margin-top: auto; text-align: center; color: #c2beb8; font-size: 12px; padding-top: 20px; }
+
+  /* 保存成功提示 */
+  .toast {
+    position: absolute;
+    left: 50%; top: 90px;
+    transform: translateX(-50%) translateY(-16px);
+    background: rgba(30,30,30,.85);
+    color: #fff;
+    font-size: 14px;
+    padding: 9px 20px;
+    border-radius: 20px;
+    z-index: 60;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* 遮罩变暗 */
+  .dim { transition: opacity .3s ease; }
+
+  /* ===== 动画 ===== */
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes fadeDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes popIn { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="titlebar dim" id="titlebar">
+    <div style="width:34px"></div>
+    <div class="title" id="mainTitle">Days Matter</div>
+    <button class="add-btn" id="addBtn">+</button>
+  </div>
+
+  <div class="board-area dim" id="boardArea">
+    <div class="clip" id="clip"></div>
+    <div class="paper" id="paper">
+      <div id="selectedCard"></div>
+      <div class="event-list" id="eventList"></div>
+      <div class="empty-state" id="emptyState">
+        <div class="icon">📅</div>
+        <div class="txt">还没有倒数日<br>点击右上角 <b>＋</b> 添加第一个日子</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 添加页（全屏上滑） -->
+  <div class="add-page" id="addPage">
+    <div class="ap-bar">
+      <button class="ap-btn" id="apBack">取消</button>
+      <div class="ap-title">添加倒数日</div>
+      <button class="ap-btn ok" id="apSave">保存</button>
+    </div>
+    <div class="ap-body">
+      <div class="ap-field">
+        <label>事件名称</label>
+        <input type="text" id="inpName" placeholder="看海" maxlength="20">
+      </div>
+      <div class="ap-field">
+        <label>目标日期</label>
+        <input type="date" id="inpDate">
+        <div class="quick-row" id="quickRow">
+          <button class="quick-chip" data-days="1">明天</button>
+          <button class="quick-chip" data-days="7">一周后</button>
+          <button class="quick-chip" data-days="30">一个月后</button>
+          <button class="quick-chip" data-days="100">100 天</button>
+          <button class="quick-chip" data-days="365">一年后</button>
+        </div>
+      </div>
+      <div class="ap-field" id="previewField" style="display:none">
+        <label>预览</label>
+        <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:10px;padding:12px 14px;border:1.5px solid #dcdad6">
+          <div>
+            <div style="font-size:16px;color:#333;font-weight:600" id="pvName"></div>
+            <div style="font-size:12px;color:#b5b2ad;margin-top:4px" id="pvDate"></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="font-size:34px;font-weight:800;color:#111" id="pvNum"></div>
+            <div style="background:#e03a3a;color:#fff;font-size:10px;font-weight:700;border-radius:4px;padding:2px 5px">Days</div>
+          </div>
+        </div>
+      </div>
+      <div class="ap-tip">保存后将按时间由近到远排列</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">已保存 ✓</div>
+</div>
+
+<script>
+  const STORE_KEY = "daysmatter_events_v2";
+
+  function loadEvents() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw === null) { localStorage.setItem(STORE_KEY, "[]"); return []; }
+      return JSON.parse(raw) || [];
+    } catch (e) { return []; }
+  }
+  function saveEvents() { localStorage.setItem(STORE_KEY, JSON.stringify(events)); }
+
+  // 首次访问且存在旧版数据时迁移；否则默认空数据
+  let events = loadEvents();
+  if (!events.length) {
+    try {
+      const old = JSON.parse(localStorage.getItem("daysmatter_events_v1") || "null");
+      if (Array.isArray(old) && old.length) {
+        events = old;
+        saveEvents();
+      }
+    } catch (e) {}
+  }
+
+  let selectedId = events.length ? events[0].id : null;
+
+  const WEEK = ["星期日","星期一","星期二","星期三","星期四","星期五","星期六"];
+
+  function today0() { const d = new Date(); d.setHours(0,0,0,0); return d; }
+  function daysDiff(dateStr) {
+    const t = new Date(dateStr + "T00:00:00"); t.setHours(0,0,0,0);
+    return Math.round((t - today0()) / 86400000);
+  }
+  function fmtTarget(dateStr) {
+    const d = new Date(dateStr + "T00:00:00");
+    return `目标日: ${dateStr} ${WEEK[d.getDay()]}`;
+  }
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  }
+
+  function render(animateSel) {
+    // 按剩余天数由近到远排序（最近的在最上面）
+    events.sort((a, b) => daysDiff(a.date) - daysDiff(b.date));
+
+    const empty = document.getElementById("emptyState");
+    const card = document.getElementById("selectedCard");
+    const list = document.getElementById("eventList");
+    const hasSel = events.some(e => e.id === selectedId);
+    if (!hasSel && events.length) selectedId = events[0].id;
+
+    empty.style.display = events.length ? "none" : "flex";
+
+    // 大卡片
+    const sel = events.find(e => e.id === selectedId);
+    if (sel) {
+      const diff = daysDiff(sel.date);
+      const isPast = diff < 0;
+      const abs = Math.abs(diff);
+      const fade = animateSel ? "fadeDown" : "";
+      card.style.animation = "none";
+      void card.offsetWidth;
+      card.style.animation = "";
+      card.innerHTML = `
+        <div class="selected-card" style="animation:${fade}">
+          <div class="sel-left">
+            <div class="sel-title">${escapeHtml(sel.name)} <span class="num">${abs}</span> 还有</div>
+            <div class="sel-target">${fmtTarget(sel.date)}</div>
+          </div>
+          <div class="sel-right">
+            <div class="big-num">${abs}</div>
+            <div class="days-badge">Days</div>
+          </div>
+        </div>`;
+    } else {
+      card.innerHTML = "";
+    }
+
+    // 列表
+    list.innerHTML = "";
+    events.forEach((e, i) => {
+      const diff = daysDiff(e.date);
+      const abs = Math.abs(diff);
+      const row = document.createElement("div");
+      row.className = "event-row" + (e.id === selectedId ? " selected" : "") + (diff < 0 ? " past" : "");
+      row.style.animationDelay = (i * 0.04) + "s";
+      row.innerHTML = `
+        <div class="event-name">${escapeHtml(e.name)} ${abs} 还有</div>
+        <div class="event-count">
+          <div class="count-num">${abs}</div>
+          <div class="count-unit">天</div>
+        </div>`;
+      row.addEventListener("click", () => { selectedId = e.id; render(true); });
+      list.appendChild(row);
+    });
+  }
+
+  // ===== 添加页开合 =====
+  const addPage = document.getElementById("addPage");
+  const addBtn = document.getElementById("addBtn");
+  const inpName = document.getElementById("inpName");
+  const inpDate = document.getElementById("inpDate");
+  const previewField = document.getElementById("previewField");
+  const titlebar = document.getElementById("titlebar");
+  const boardArea = document.getElementById("boardArea");
+  const clip = document.getElementById("clip");
+
+  function openAdd() {
+    inpName.value = "";
+    const t = today0();
+    inpDate.value = t.toISOString().slice(0, 10);
+    updatePreview();
+    document.querySelectorAll(".quick-chip").forEach(c => c.classList.remove("active"));
+    addPage.classList.add("show");
+    addBtn.classList.add("adding");
+    titlebar.style.opacity = ".6";
+    boardArea.style.transform = "scale(.94)";
+    boardArea.style.opacity = ".5";
+    setTimeout(() => inpName.focus(), 420);
+  }
+  function closeAdd() {
+    addPage.classList.remove("show");
+    addBtn.classList.remove("adding");
+    titlebar.style.opacity = "1";
+    boardArea.style.transform = "";
+    boardArea.style.opacity = "1";
+    inpName.blur();
+  }
+
+  addBtn.addEventListener("click", () => addPage.classList.contains("show") ? closeAdd() : openAdd());
+  document.getElementById("apBack").addEventListener("click", closeAdd);
+
+  function updatePreview() {
+    const name = inpName.value.trim();
+    const date = inpDate.value;
+    if (!name || !date) { previewField.style.display = "none"; return; }
+    const diff = daysDiff(date);
+    document.getElementById("pvName").textContent = name;
+    document.getElementById("pvDate").textContent = fmtTarget(date);
+    document.getElementById("pvNum").textContent = Math.abs(diff);
+    previewField.style.display = "block";
+  }
+  inpName.addEventListener("input", updatePreview);
+  inpDate.addEventListener("input", updatePreview);
+
+  // 快捷日期
+  document.getElementById("quickRow").addEventListener("click", e => {
+    const chip = e.target.closest(".quick-chip");
+    if (!chip) return;
+    const d = today0();
+    d.setDate(d.getDate() + Number(chip.dataset.days));
+    inpDate.value = d.toISOString().slice(0, 10);
+    document.querySelectorAll(".quick-chip").forEach(c => c.classList.remove("active"));
+    chip.classList.add("active");
+    updatePreview();
+  });
+
+  // 保存
+  const toast = document.getElementById("toast");
+  document.getElementById("apSave").addEventListener("click", () => {
+    const name = inpName.value.trim();
+    const date = inpDate.value;
+    if (!name) { inpName.focus(); inpName.style.borderColor = "#e03a3a"; setTimeout(() => inpName.style.borderColor = "", 1200); return; }
+    if (!date) { inpDate.focus(); return; }
+    const ev = { id: Date.now(), name, date };
+    events.push(ev);
+    selectedId = ev.id;
+    saveEvents();
+    closeAdd();
+    render(true);
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 1600);
+  });
+
+  render(false);
+</script>
+</body>
+</html>
