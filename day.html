@@ -306,6 +306,92 @@
   /* 遮罩变暗 */
   .dim { transition: opacity .3s ease; }
 
+  /* ===== 长按操作面板 ===== */
+  .sheet-mask {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,.45);
+    z-index: 40;
+    display: flex;
+    align-items: flex-end;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s ease;
+  }
+  .sheet-mask.show { opacity: 1; pointer-events: auto; }
+  .sheet {
+    width: 100%;
+    background: #f5f4f1;
+    border-radius: 14px 14px 0 0;
+    padding: 10px 14px calc(14px + env(safe-area-inset-bottom));
+    transform: translateY(100%);
+    transition: transform .3s cubic-bezier(.32,.72,.35,1);
+  }
+  .sheet-mask.show .sheet { transform: translateY(0); }
+  .sheet-title {
+    text-align: center;
+    font-size: 13px;
+    color: #a09c96;
+    padding: 6px 0 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sheet-btn {
+    width: 100%;
+    padding: 13px 0;
+    font-size: 16px;
+    border: none;
+    border-radius: 10px;
+    background: #fff;
+    color: #1c66b8;
+    cursor: pointer;
+    margin-bottom: 8px;
+    transition: transform .15s ease, filter .15s ease;
+  }
+  .sheet-btn:active { transform: scale(.97); filter: brightness(.95); }
+  .sheet-btn.danger { color: #e03a3a; font-weight: 600; }
+  .sheet-btn.cancel { background: #dcdad6; color: #555; }
+
+  /* 删除确认 */
+  .confirm-mask {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,.5);
+    z-index: 45;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .22s ease;
+  }
+  .confirm-mask.show { opacity: 1; pointer-events: auto; }
+  .confirm-box {
+    width: 78%;
+    max-width: 320px;
+    background: #f5f4f1;
+    border-radius: 14px;
+    padding: 22px 18px 16px;
+    text-align: center;
+    transform: scale(.85);
+    transition: transform .22s cubic-bezier(.34,1.4,.64,1);
+  }
+  .confirm-mask.show .confirm-box { transform: scale(1); }
+  .confirm-txt { font-size: 16px; color: #333; line-height: 1.6; margin-bottom: 18px; }
+  .confirm-txt b { color: #e03a3a; }
+  .confirm-btns { display: flex; gap: 10px; }
+  .confirm-btns button {
+    flex: 1;
+    padding: 11px 0;
+    font-size: 16px;
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+  }
+  .cf-cancel { background: #dcdad6; color: #555; }
+  .cf-ok { background: #e03a3a; color: #fff; font-weight: 600; }
+
   /* ===== 动画 ===== */
   @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
   @keyframes fadeDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
@@ -337,7 +423,7 @@
   <div class="add-page" id="addPage">
     <div class="ap-bar">
       <button class="ap-btn" id="apBack">取消</button>
-      <div class="ap-title">添加倒数日</div>
+      <div class="ap-title" id="apTitle">添加倒数日</div>
       <button class="ap-btn ok" id="apSave">保存</button>
     </div>
     <div class="ap-body">
@@ -374,6 +460,27 @@
   </div>
 
   <div class="toast" id="toast">已保存 ✓</div>
+
+  <!-- 长按操作面板 -->
+  <div class="sheet-mask" id="sheetMask">
+    <div class="sheet">
+      <div class="sheet-title" id="sheetName"></div>
+      <button class="sheet-btn" id="sheetEdit">✏️ 编辑</button>
+      <button class="sheet-btn danger" id="sheetDel">🗑️ 删除</button>
+      <button class="sheet-btn cancel" id="sheetCancel">取消</button>
+    </div>
+  </div>
+
+  <!-- 删除确认 -->
+  <div class="confirm-mask" id="confirmMask">
+    <div class="confirm-box">
+      <div class="confirm-txt" id="confirmTxt"></div>
+      <div class="confirm-btns">
+        <button class="cf-cancel" id="cfCancel">取消</button>
+        <button class="cf-ok" id="cfOk">删除</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -401,6 +508,7 @@
   }
 
   let selectedId = events.length ? events[0].id : null;
+  let editingId = null;
 
   const WEEK = ["星期日","星期一","星期二","星期三","星期四","星期五","星期六"];
 
@@ -450,6 +558,7 @@
             <div class="days-badge">Days</div>
           </div>
         </div>`;
+      attachLongPress(card.querySelector(".selected-card"), sel);
     } else {
       card.innerHTML = "";
     }
@@ -469,6 +578,7 @@
           <div class="count-unit">天</div>
         </div>`;
       row.addEventListener("click", () => { selectedId = e.id; render(true); });
+      attachLongPress(row, e);
       list.appendChild(row);
     });
   }
@@ -484,17 +594,31 @@
   const clip = document.getElementById("clip");
 
   function openAdd() {
-    inpName.value = "";
-    const t = today0();
-    inpDate.value = t.toISOString().slice(0, 10);
+    if (editingId) {
+      // 编辑模式：预填数据
+      const ev = events.find(x => x.id === editingId);
+      document.getElementById("apTitle").textContent = "编辑倒数日";
+      inpName.value = ev.name;
+      inpDate.value = ev.date;
+      document.querySelectorAll(".quick-chip").forEach(c => {
+        const d = today0();
+        d.setDate(d.getDate() + Number(c.dataset.days));
+        c.classList.toggle("active", d.toISOString().slice(0, 10) === ev.date);
+      });
+    } else {
+      document.getElementById("apTitle").textContent = "添加倒数日";
+      inpName.value = "";
+      const t = today0();
+      inpDate.value = t.toISOString().slice(0, 10);
+      document.querySelectorAll(".quick-chip").forEach(c => c.classList.remove("active"));
+    }
     updatePreview();
-    document.querySelectorAll(".quick-chip").forEach(c => c.classList.remove("active"));
     addPage.classList.add("show");
     addBtn.classList.add("adding");
     titlebar.style.opacity = ".6";
     boardArea.style.transform = "scale(.94)";
     boardArea.style.opacity = ".5";
-    setTimeout(() => inpName.focus(), 420);
+    if (!editingId) setTimeout(() => inpName.focus(), 420);
   }
   function closeAdd() {
     addPage.classList.remove("show");
@@ -503,6 +627,7 @@
     boardArea.style.transform = "";
     boardArea.style.opacity = "1";
     inpName.blur();
+    editingId = null;
   }
 
   addBtn.addEventListener("click", () => addPage.classList.contains("show") ? closeAdd() : openAdd());
@@ -533,19 +658,88 @@
     updatePreview();
   });
 
-  // 保存
+  // 保存（新增 / 编辑）
   const toast = document.getElementById("toast");
   document.getElementById("apSave").addEventListener("click", () => {
     const name = inpName.value.trim();
     const date = inpDate.value;
     if (!name) { inpName.focus(); inpName.style.borderColor = "#e03a3a"; setTimeout(() => inpName.style.borderColor = "", 1200); return; }
     if (!date) { inpDate.focus(); return; }
-    const ev = { id: Date.now(), name, date };
-    events.push(ev);
-    selectedId = ev.id;
+    if (editingId) {
+      const ev = events.find(x => x.id === editingId);
+      ev.name = name;
+      ev.date = date;
+      selectedId = ev.id;
+    } else {
+      const ev = { id: Date.now(), name, date };
+      events.push(ev);
+      selectedId = ev.id;
+    }
     saveEvents();
     closeAdd();
     render(true);
+    toast.textContent = editingId ? "已修改 ✓" : "已保存 ✓";
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 1600);
+  });
+
+  // ===== 长按编辑 / 删除 =====
+  const sheetMask = document.getElementById("sheetMask");
+  const confirmMask = document.getElementById("confirmMask");
+  let sheetEventId = null;
+
+  function attachLongPress(el, ev) {
+    if (!el) return;
+    let timer = null, moved = false, sx = 0, sy = 0;
+    const clear = () => { clearTimeout(timer); timer = null; };
+    el.addEventListener("pointerdown", e => {
+      moved = false; sx = e.clientX; sy = e.clientY;
+      timer = setTimeout(() => {
+        timer = null;
+        if (navigator.vibrate) navigator.vibrate(30);
+        openSheet(ev);
+      }, 500);
+    });
+    el.addEventListener("pointermove", e => {
+      if (Math.abs(e.clientX - sx) > 8 || Math.abs(e.clientY - sy) > 8) { moved = true; clear(); }
+    });
+    el.addEventListener("pointerup", clear);
+    el.addEventListener("pointercancel", clear);
+    el.addEventListener("pointerleave", clear);
+    // 桌面端右键同样支持
+    el.addEventListener("contextmenu", e => { e.preventDefault(); openSheet(ev); });
+  }
+
+  function openSheet(ev) {
+    sheetEventId = ev.id;
+    document.getElementById("sheetName").textContent = ev.name;
+    sheetMask.classList.add("show");
+  }
+  function closeSheet() { sheetMask.classList.remove("show"); }
+
+  sheetMask.addEventListener("click", e => { if (e.target === sheetMask) closeSheet(); });
+  document.getElementById("sheetCancel").addEventListener("click", closeSheet);
+  document.getElementById("sheetEdit").addEventListener("click", () => {
+    editingId = sheetEventId;
+    closeSheet();
+    openAdd();
+  });
+  document.getElementById("sheetDel").addEventListener("click", () => {
+    const ev = events.find(x => x.id === sheetEventId);
+    document.getElementById("confirmTxt").innerHTML = `确定删除「<b>${escapeHtml(ev.name)}</b>」吗？<br>删除后不可恢复`;
+    closeSheet();
+    confirmMask.classList.add("show");
+  });
+  document.getElementById("cfCancel").addEventListener("click", () => confirmMask.classList.remove("show"));
+  confirmMask.addEventListener("click", e => { if (e.target === confirmMask) confirmMask.classList.remove("show"); });
+  document.getElementById("cfOk").addEventListener("click", () => {
+    events = events.filter(x => x.id !== sheetEventId);
+    if (selectedId === sheetEventId) selectedId = events.length ? events[0].id : null;
+    sheetEventId = null;
+    saveEvents();
+    confirmMask.classList.remove("show");
+    render(false);
+    toast.textContent = "已删除 ✓";
     toast.classList.add("show");
     setTimeout(() => toast.classList.remove("show"), 1600);
   });
